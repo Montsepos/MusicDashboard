@@ -1,4 +1,8 @@
-const YOUTUBE_API_KEY = "412949067291-94od2mkt5ag7ohm3upalgaf79cc8ug7p.apps.googleusercontent.com"; // ID CLIENTE
+const YOUTUBE_API_KEY = "412949067291-94od2mkt5ag7ohm3upalgaf79cc8ug7p.apps.googleusercontent.com"; // ID 
+// y el secret? donde lo pongo
+// const YOUTUBE_API_SECRET = "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"
+//NOESTA FUNCIONANDO AUN
+
 
 async function getYouTubeData(artist) {
   try {
