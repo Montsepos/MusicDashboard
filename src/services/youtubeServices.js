@@ -1,42 +1,49 @@
-const YOUTUBE_API_KEY = "412949067291-94od2mkt5ag7ohm3upalgaf79cc8ug7p.apps.googleusercontent.com"; // ID 
-// y el secret? donde lo pongo
-// const YOUTUBE_API_SECRET = "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"
-//NOESTA FUNCIONANDO AUN
-
+const API_KEY = process.env.REACT_APP_YOUTUBE_API_KEY;
+const BASE_URL = "https://www.googleapis.com/youtube/v3";
 
 async function getYouTubeData(artist) {
   try {
-    // 1️⃣ Buscar el canal del artista en YouTube
+    if (!API_KEY) {
+      throw new Error("La clave de API de YouTube no está definida.");
+    }
+
+    // 1️⃣ Buscar el canal del artista
     const searchResponse = await fetch(
-      `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${artist}&type=channel&key=${YOUTUBE_API_KEY}`
+      `${BASE_URL}/search?part=snippet&q=${encodeURIComponent(artist)}&type=channel&key=${API_KEY}`
     );
     const searchData = await searchResponse.json();
-
-    if (searchData.items.length === 0) return null;
+    
+    if (!searchData.items || searchData.items.length === 0) {
+      console.warn("No se encontraron canales para este artista.");
+      return null;
+    }
 
     const channelId = searchData.items[0].id.channelId;
 
     // 2️⃣ Obtener información del canal
     const channelResponse = await fetch(
-      `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&id=${channelId}&key=${YOUTUBE_API_KEY}`
+      `${BASE_URL}/channels?part=snippet,statistics&id=${channelId}&key=${API_KEY}`
     );
     const channelData = await channelResponse.json();
 
-    if (channelData.items.length > 0) {
-      const channelInfo = channelData.items[0];
-
-      return {
-        channelName: channelInfo.snippet.title,
-        channelId: channelInfo.id,
-        channelUrl: `https://www.youtube.com/channel/${channelInfo.id}`,
-        thumbnail: channelInfo.snippet.thumbnails.high.url,
-        subscribers: channelInfo.statistics.subscriberCount,
-        totalViews: channelInfo.statistics.viewCount,
-        totalVideos: channelInfo.statistics.videoCount,
-      };
+    if (!channelData.items || channelData.items.length === 0) {
+      console.warn("No se encontró información del canal.");
+      return null;
     }
+
+    const channelInfo = channelData.items[0];
+
+    return {
+      channelName: channelInfo.snippet.title,
+      channelId: channelInfo.id,
+      channelUrl: `https://www.youtube.com/channel/${channelInfo.id}`,
+      thumbnail: channelInfo.snippet.thumbnails.high.url,
+      subscribers: channelInfo.statistics.subscriberCount,
+      totalViews: channelInfo.statistics.viewCount,
+      totalVideos: channelInfo.statistics.videoCount,
+    };
   } catch (error) {
-    console.error("Error al obtener datos de YouTube", error);
+    console.error("Error al obtener datos de YouTube:", error);
     return null;
   }
 }
