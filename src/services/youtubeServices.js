@@ -1,51 +1,74 @@
-const API_KEY = process.env.REACT_APP_YOUTUBE_API_KEY;
-const BASE_URL = "https://www.googleapis.com/youtube/v3";
+export async function exchangeCodeForToken(code) {
+  const response = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: process.env.REACT_APP_CLIENT_ID,
+      client_secret: process.env.REACT_APP_CLIENT_SECRET,
+      code,
+      grant_type: "authorization_code",
+      redirect_uri: process.env.REACT_APP_REDIRECT_URI,
+    }),
+  });
+  const data = await response.json();
+  console.log("Respuesta del servidor:", data);
 
-async function getYouTubeData(artist) {
+  if (!response.ok) {
+    console.error("Error en la solicitud de token:", data);
+    throw new Error("Error al obtener el token de acceso");
+  }
+
+  return data.access_token;
+}
+
+export async function getYouTubeChannelId(accessToken) { //errores al obtener id, revisar documentacion
   try {
-    if (!API_KEY) {
-      throw new Error("La clave de API de YouTube no está definida.");
+    const response = await fetch("https://www.googleapis.com/youtube/v3/channels?part=id&mine=true", {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/json",
+      },
+    });
+
+    const data = await response.json();
+    if (data.items && data.items.length > 0) {
+      return data.items[0].id;
+    } else {
+      throw new Error("No se encontró el canal del usuario");
+    }
+  } catch (error) {
+    console.error("Error al obtener el ID del canal:", error);
+    return null;
+  }
+}
+
+export async function getYouTubeData(accessToken) {
+  console.log("Obteniendo datos de YouTube...");
+  try {
+    const channelId = await getYouTubeChannelId(accessToken);
+    if (!channelId) {
+      throw new Error("No se pudo obtener el ID del canal");
     }
 
-    // 1️⃣ Buscar el canal del artista
-    const searchResponse = await fetch(
-      `${BASE_URL}/search?part=snippet&q=${encodeURIComponent(artist)}&type=channel&key=${API_KEY}`
+    console.log("ID del canal obtenido:", channelId); // ✅ Agregado para depuración
+
+    const response = await fetch(
+      `https://youtubeanalytics.googleapis.com/v3/reports?ids=channel==${channelId}&metrics=views,subscribersGained&dimensions=day&startDate=2024-01-01&endDate=2024-03-18`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: "application/json",
+        },
+      }
     );
-    const searchData = await searchResponse.json();
-    
-    if (!searchData.items || searchData.items.length === 0) {
-      console.warn("No se encontraron canales para este artista.");
-      return null;
-    }
 
-    const channelId = searchData.items[0].id.channelId;
-
-    // 2️⃣ Obtener información del canal
-    const channelResponse = await fetch(
-      `${BASE_URL}/channels?part=snippet,statistics&id=${channelId}&key=${API_KEY}`
-    );
-    const channelData = await channelResponse.json();
-
-    if (!channelData.items || channelData.items.length === 0) {
-      console.warn("No se encontró información del canal.");
-      return null;
-    }
-
-    const channelInfo = channelData.items[0];
-
-    return {
-      channelName: channelInfo.snippet.title,
-      channelId: channelInfo.id,
-      channelUrl: `https://www.youtube.com/channel/${channelInfo.id}`,
-      thumbnail: channelInfo.snippet.thumbnails.high.url,
-      subscribers: channelInfo.statistics.subscriberCount,
-      totalViews: channelInfo.statistics.viewCount,
-      totalVideos: channelInfo.statistics.videoCount,
-    };
+    const data = await response.json();
+    console.log("Datos de YouTube RECIBIDOS:", data);
+    return data;
   } catch (error) {
     console.error("Error al obtener datos de YouTube:", error);
     return null;
   }
 }
-
-export { getYouTubeData };
