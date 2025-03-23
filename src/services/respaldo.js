@@ -3,16 +3,16 @@ import Papa from "papaparse";
 import { Card } from "../components/ui/card";
 import { LineChart, Line as RechartsLine, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
-// Función para formatear la fecha y eliminar la hora si existe
-const formatDate = (dateString) => {
-  if (!dateString || typeof dateString !== "string") return null;
-  return dateString.split(" ")[0]; // Extrae solo la parte de la fecha
-};
-
 const AnalyzeSpotifyData = () => {
   const [spotifyData, setSpotifyData] = useState([]);
   const [instagramData, setInstagramData] = useState([]);
   const [fileError, setFileError] = useState(null);
+
+  // Función para limpiar y normalizar las fechas (eliminar la hora)
+  const normalizeDate = (dateString) => {
+    if (!dateString) return null;
+    return new Date(dateString).toISOString().split("T")[0]; // Formato YYYY-MM-DD
+  };
 
   // Cargar archivo de Spotify
   const handleSpotifyUpload = (event) => {
@@ -23,20 +23,15 @@ const AnalyzeSpotifyData = () => {
       header: true,
       dynamicTyping: true,
       complete: (result) => {
-        let formattedData = result.data
+        const formattedData = result.data
           .map((row) => ({
-            date: formatDate(row["date"]),
+            date: normalizeDate(row["date"]),
             streams: row["streams"] || 0,
             listeners: row["listeners"] || 0,
             followers: row["followers"] || 0,
+            interactions: 0, // Inicializa en 0 para evitar datos faltantes
           }))
-          .filter(entry => entry.date); // Filtra valores nulos o vacíos
-
-        // Calcular el cambio en followers
-        formattedData = formattedData.map((entry, index, arr) => ({
-          ...entry,
-          followersChange: index === 0 ? 0 : entry.followers - arr[index - 1].followers,
-        }));
+          .filter(entry => entry.date && new Date(entry.date) >= new Date("2024-01-01"));
 
         setSpotifyData(formattedData);
         setFileError(null);
@@ -56,10 +51,13 @@ const AnalyzeSpotifyData = () => {
       complete: (result) => {
         const formattedData = result.data
           .map((row) => ({
-            date: formatDate(row["Date"]),
+            date: normalizeDate(row["Date"]), // Normaliza la fecha quitando la hora
             interactions: row["Primary"] || 0,
+            streams: 0, // Inicializa en 0 para evitar datos faltantes
+            listeners: 0,
+            followers: 0,
           }))
-          .filter(entry => entry.date); // Filtra valores nulos
+          .filter(entry => entry.date && new Date(entry.date) >= new Date("2024-01-01"));
 
         setInstagramData(formattedData);
         setFileError(null);
@@ -68,20 +66,25 @@ const AnalyzeSpotifyData = () => {
     });
   };
 
-  // Combinar los datos de Spotify e Instagram
-  const mergedData = [...spotifyData];
+  // Crear un mapa con todas las fechas y datos combinados
+  const dataMap = new Map();
 
+  // Agregar datos de Spotify
+  spotifyData.forEach(entry => {
+    dataMap.set(entry.date, { ...entry });
+  });
+
+  // Agregar datos de Instagram asegurando que las fechas sean las mismas
   instagramData.forEach(instaEntry => {
-    const match = mergedData.find(entry => entry.date === instaEntry.date);
-    if (match) {
-      match.interactions = instaEntry.interactions;
+    if (dataMap.has(instaEntry.date)) {
+      dataMap.set(instaEntry.date, { ...dataMap.get(instaEntry.date), interactions: instaEntry.interactions });
     } else {
-      mergedData.push({ date: instaEntry.date, interactions: instaEntry.interactions });
+      dataMap.set(instaEntry.date, { ...instaEntry }); // Agrega la entrada si no existía
     }
   });
 
-  // Ordenar los datos por fecha para que el gráfico se vea correctamente
-  mergedData.sort((a, b) => new Date(a.date) - new Date(b.date));
+  // Convertir el mapa en un array y ordenarlo por fecha
+  const mergedData = Array.from(dataMap.values()).sort((a, b) => new Date(a.date) - new Date(b.date));
 
   return (
     <Card>
@@ -104,10 +107,8 @@ const AnalyzeSpotifyData = () => {
           <Legend />
           <RechartsLine type="monotone" dataKey="streams" stroke="#8884d8" name="Streams" />
           <RechartsLine type="monotone" dataKey="listeners" stroke="#82ca9d" name="Listeners" />
-          <RechartsLine type="monotone" dataKey="followersChange" stroke="#ffc658" name="Followers Change" />
-          {instagramData.length > 0 && (
-            <RechartsLine type="monotone" dataKey="interactions" stroke="red" name="Instagram Interactions" />
-          )}
+          <RechartsLine type="monotone" dataKey="followers" stroke="#ffc658" name="Followers" />
+          <RechartsLine type="monotone" dataKey="interactions" stroke="red" name="Instagram Interactions" />
         </LineChart>
       </ResponsiveContainer>
     </Card>
