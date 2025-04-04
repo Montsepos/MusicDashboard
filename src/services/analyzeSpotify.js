@@ -30,7 +30,8 @@ const AnalyzeSpotifyData = () => {
             listeners: row["listeners"] || 0,
             followers: row["followers"] || 0,
           }))
-          .filter(entry => entry.date); // Filtra valores nulos o vacíos
+          .filter(entry => entry.date && new Date(entry.date) >= new Date("2024-01-01"));
+          // Filtra valores nulos o vacíos
 
         // Calcular el cambio en followers
         formattedData = formattedData.map((entry, index, arr) => ({
@@ -59,7 +60,7 @@ const AnalyzeSpotifyData = () => {
             date: formatDate(row["Date"]),
             interactions: row["Primary"] || 0,
           }))
-          .filter(entry => entry.date); // Filtra valores nulos
+          .filter(entry => entry.date && new Date(entry.date) >= new Date("2024-01-01"));
 
         setInstagramData(formattedData);
         setFileError(null);
