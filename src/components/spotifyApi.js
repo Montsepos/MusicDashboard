@@ -1,6 +1,6 @@
 import React from "react";
 
-function ArtistInfo({ artist }) {
+function ArtistInfo({ artist, setSelectedGenre }) {
   if (!artist) return null;
 
   return (
@@ -25,7 +25,17 @@ function ArtistInfo({ artist }) {
             <td>{artist.name}</td>
             <td>{artist.followers.total.toLocaleString()}</td>
             <td>{artist.popularity}</td>
-            <td>{artist.genres.join(", ")}</td>
+            <td>
+              {artist.genres.map((genre) => (
+                <span
+                  key={genre}
+                  style={{ marginRight: 10, cursor: "pointer", color: "blue" }}
+                  onClick={() => setSelectedGenre(genre)}
+                >
+                  {genre}
+                </span>
+              ))}
+            </td>
           </tr>
         </tbody>
       </table>
