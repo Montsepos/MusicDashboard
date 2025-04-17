@@ -1,11 +1,15 @@
 import React from "react";
 
-function ArtistInfo({ artist, setSelectedGenre }) {
+function ArtistInfo({ artist, instagramHandle, setSelectedGenre }) {
+  console.log("INSTAGRAM HANDLE EN COMPONENTE:", instagramHandle);
   if (!artist) return null;
 
   return (
     <div>
       <h3>{artist.name}</h3>
+      {instagramHandle && (
+        <p><strong>Instagram:</strong> @{instagramHandle}</p>
+      )}
       <img
         src={artist.images.length > 0 ? artist.images[0].url : ""}
         alt={artist.name}

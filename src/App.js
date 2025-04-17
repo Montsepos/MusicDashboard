@@ -4,15 +4,16 @@ import { getArtist, getSpotifyToken } from "./services/spotifyServices";
 import ArtistInfo from "./components/spotifyApi";
 import AnalyzeSpotifyData from "./services/analyzeSpotify";
 import { Card, CardContent } from "./components/ui/card";
-import GenreArtist from "./services/genreArtist";  // Importa el componente de artistas por género
+import GenreArtist from "./services/genreArtist"; // Importa el componente de artistas por género
+import { getArtistInstagram } from "./services/chatCPTServices"; // Solo esta función ahora
 
 function App() {
   const [searchTerm, setSearchTerm] = useState("");
   const [artistData, setArtistData] = useState(null);
   const [spotifyAccessToken, setSpotifyAccessToken] = useState("");
   const [selectedGenre, setSelectedGenre] = useState(null);
+  const [instagramHandle, setInstagramHandle] = useState("");
 
-  // Obtener token de Spotify (Client Credentials) al cargar la app
   useEffect(() => {
     getSpotifyToken().then((token) => {
       setSpotifyAccessToken(token);
@@ -24,12 +25,14 @@ function App() {
     e.preventDefault();
     if (!searchTerm || !spotifyAccessToken) return;
 
-    // Buscar artista en Spotify usando el token
     const artist = await getArtist(searchTerm, spotifyAccessToken);
     setArtistData(artist);
-    console.log("Artista encontrado:", artist);
 
-    // Seleccionar el primer género del artista para buscar relacionados
+    if (artist?.name) {
+      const { instagram } = await getArtistInstagram(artist.name);
+      setInstagramHandle(instagram);
+    }
+
     if (artist && artist.genres && artist.genres.length > 0) {
       setSelectedGenre(artist.genres[0]);
     } else {
@@ -50,9 +53,8 @@ function App() {
         <button type="submit">Search</button>
       </form>
 
-      <ArtistInfo artist={artistData} setSelectedGenre={setSelectedGenre} />
+      <ArtistInfo artist={artistData} instagramHandle={instagramHandle} setSelectedGenre={setSelectedGenre} />
 
-      {/* Mostrar artistas relacionados por género */}
       {selectedGenre && (
         <GenreArtist genre={selectedGenre} accessToken={spotifyAccessToken} />
       )}
@@ -68,4 +70,3 @@ function App() {
 }
 
 export default App;
-

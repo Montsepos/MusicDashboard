@@ -1,87 +1,72 @@
-// import { useState, useEffect } from "react";
-// import "./App.css";
-// import { getArtist } from "./services/spotifyServices";
-// import { getYouTubeData, exchangeCodeForToken } from "./services/youtubeServices";
-// import ArtistInfo from "./components/spotifyApi";
-// import YouTubeInfo from "./components/youtubeInfo";
-// import React from "react";
-// import AnalyzeSpotifyData from "./services/analyzeSpotify";
-// import { Card, CardContent } from "./components/ui/card";
+//APP.JS
+import React, { useState, useEffect } from "react";
+import "./App.css";
+import { getArtist, getSpotifyToken } from "./services/spotifyServices";
+import ArtistInfo from "./components/spotifyApi";
+import AnalyzeSpotifyData from "./services/analyzeSpotify";
+import { Card, CardContent } from "./components/ui/card";
+import GenreArtist from "./services/genreArtist";  // Importa el componente de artistas por género
 
-// const CLIENT_ID = process.env.REACT_APP_CLIENT_ID;
-// const REDIRECT_URI = process.env.REACT_APP_REDIRECT_URI;
-// const SCOPE = process.env.REACT_APP_SCOPE;
+function App() {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [artistData, setArtistData] = useState(null);
+  const [spotifyAccessToken, setSpotifyAccessToken] = useState("");
+  const [selectedGenre, setSelectedGenre] = useState(null);
 
-// function App() {
-//   const [searchTerm, setSearchTerm] = useState("");
-//   const [artistData, setArtistData] = useState(null);
-//   const [youtubeData, setYouTubeData] = useState(null);
-//   const [accessToken, setAccessToken] = useState(localStorage.getItem("youtube_access_token"));
+  // Obtener token de Spotify (Client Credentials) al cargar la app
+  useEffect(() => {
+    getSpotifyToken().then((token) => {
+      setSpotifyAccessToken(token);
+      console.log("Token de Spotify obtenido:", token);
+    });
+  }, []);
 
-//   useEffect(() => {
-//     const urlParams = new URLSearchParams(window.location.search);
-//     const code = urlParams.get("code");
-//     console.log("Código de autorización recibido:", code); // ✅ Verifica si el código llega correctamente
+  async function handleSearch(e) {
+    e.preventDefault();
+    if (!searchTerm || !spotifyAccessToken) return;
 
+    // Buscar artista en Spotify usando el token
+    const artist = await getArtist(searchTerm, spotifyAccessToken);
+    setArtistData(artist);
+    console.log("Artista encontrado:", artist);
 
-//     if (code) {
-//       exchangeCodeForToken(code).then((token) => {
-//         setAccessToken(token);
-//         localStorage.setItem("youtube_access_token", token);
-//         window.history.replaceState({}, document.title, "/");
-//       }).catch(error => {
-//         console.error("Error intercambiando código por token:", error);
-//     });
-// }
-// }, []);
+    // Seleccionar el primer género del artista para buscar relacionados
+    if (artist && artist.genres && artist.genres.length > 0) {
+      setSelectedGenre(artist.genres[0]);
+    } else {
+      setSelectedGenre(null);
+    }
+  }
 
-//   useEffect(() => {
-//     if (accessToken) {
-//       getYouTubeData(accessToken).then((youtubeInfo) => {
-//         setYouTubeData(youtubeInfo);
-//       }).catch(error => {
-//         console.error("Error obteniendo datos de YouTube:", error);
-//       });
-//     }
-//   }, [accessToken]);
+  return (
+    <div className="App">
+      <h2>Music Dash</h2>
+      <form onSubmit={handleSearch}>
+        <input
+          type="text"
+          placeholder="Search for an artist"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        <button type="submit">Search</button>
+      </form>
 
-//   async function handleSearch(e) {
-//     e.preventDefault();
-//     if (!searchTerm) return;
+      <ArtistInfo artist={artistData} setSelectedGenre={setSelectedGenre} />
 
-//     const artist = await getArtist(searchTerm);
-//     setArtistData(artist);
-//   }
+      {/* Mostrar artistas relacionados por género */}
+      {selectedGenre && (
+        <GenreArtist genre={selectedGenre} accessToken={spotifyAccessToken} />
+      )}
 
-//   function loginWithYouTube() {
-//     const authUrl = `https://accounts.google.com/o/oauth2/auth?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URI}&scope=${encodeURIComponent(SCOPE)}&response_type=code&access_type=offline`;
-//     window.location.href = authUrl;
-//   }
+      <h1 className="text-2xl font-bold mb-4">Music Dashboard</h1>
+      <Card>
+        <CardContent>
+          <AnalyzeSpotifyData />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
-//   return (
-//     <div className="App">
-//       <h2>Music Dash</h2>
-//       <button onClick={loginWithYouTube}>Iniciar sesión con YouTube</button>
-//       <form onSubmit={handleSearch}>
-//         <input
-//           type="text"
-//           placeholder="Search for an artist"
-//           value={searchTerm}
-//           onChange={(e) => setSearchTerm(e.target.value)}
-//         />
-//         <button type="submit">Search</button>
-//       </form>
-//       <ArtistInfo artist={artistData} />
-//       <YouTubeInfo youtubeData={youtubeData} />
-      
-//       <h1 className="text-2xl font-bold mb-4">Music Dashboard</h1>
-//       <Card>
-//         <CardContent>
-//           <AnalyzeSpotifyData />
-//         </CardContent>
-//       </Card>
-//     </div>
-//   );
-// }
+export default App;
 
-// export default App;
