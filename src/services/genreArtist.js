@@ -1,26 +1,39 @@
 import React, { useEffect, useState } from "react";
 import { searchArtistsByGenre, getArtistStats } from "../services/spotifyServices";
+import ArtistInfo from "../components/spotifyApi";
+import { getArtistInstagram } from "./chatCPTServices";
 
 const GenreArtist = ({ genre, accessToken }) => {
   const [artists, setArtists] = useState([]);
   const [selectedArtist, setSelectedArtist] = useState(null);
+  const [instagramHandle, setInstagramHandle] = useState("");
 
-  // Al cambiar el género o el token, se busca artistas de ese género
+  // Al cambiar el género o el token, se buscan artistas de ese género
   useEffect(() => {
     async function fetchArtists() {
       const results = await searchArtistsByGenre(genre, accessToken);
       setArtists(results);
-      setSelectedArtist(null); // Reinicia el artista seleccionado al cambiar de género
+      setSelectedArtist(null);
+      setInstagramHandle(""); // Limpiar Instagram al cambiar género
     }
+
     if (genre && accessToken) {
       fetchArtists();
     }
   }, [genre, accessToken]);
 
-  // Al hacer clic en un artista, se obtienen sus estadísticas detalladas
+  // Al hacer clic en un artista, se obtienen sus estadísticas e Instagram
   const handleArtistClick = async (artistId) => {
-    const stats = await getArtistStats(artistId, accessToken);
-    setSelectedArtist(stats);
+    try {
+      const stats = await getArtistStats(artistId, accessToken);
+      setSelectedArtist(stats);
+
+      const { instagram } = await getArtistInstagram(stats.name);
+      setInstagramHandle(instagram);
+    } catch (error) {
+      console.error("Error al obtener datos del artista o Instagram:", error);
+      setInstagramHandle("No disponible");
+    }
   };
 
   return (
@@ -41,14 +54,7 @@ const GenreArtist = ({ genre, accessToken }) => {
       {selectedArtist && (
         <div style={{ border: "1px solid #ccc", padding: "10px", marginTop: "20px" }}>
           <h4>{selectedArtist.name}</h4>
-          <img
-            src={selectedArtist.images.length > 0 ? selectedArtist.images[0].url : ""}
-            alt={selectedArtist.name}
-            width="200"
-          />
-          <p>Followers: {selectedArtist.followers.total.toLocaleString()}</p>
-          <p>Popularity: {selectedArtist.popularity}</p>
-          <p>Genres: {selectedArtist.genres.join(" ")}</p>
+          <ArtistInfo artist={selectedArtist} instagramHandle={instagramHandle} />
         </div>
       )}
     </div>

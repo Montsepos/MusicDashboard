@@ -1,72 +1,64 @@
-//APP.JS
-import React, { useState, useEffect } from "react";
-import "./App.css";
-import { getArtist, getSpotifyToken } from "./services/spotifyServices";
+//genreartist.JS
+import React, { useEffect, useState } from "react";
+import { searchArtistsByGenre, getArtistStats } from "../services/spotifyServices";
 import ArtistInfo from "./components/spotifyApi";
-import AnalyzeSpotifyData from "./services/analyzeSpotify";
-import { Card, CardContent } from "./components/ui/card";
-import GenreArtist from "./services/genreArtist";  // Importa el componente de artistas por género
+import { getArtistInstagram } from "./services/chatCPTServices"; // Solo esta función ahora
 
-function App() {
-  const [searchTerm, setSearchTerm] = useState("");
+const GenreArtist = ({ genre, accessToken }) => {
+  const [artists, setArtists] = useState([]);
+  const [selectedArtist, setSelectedArtist] = useState(null);
+  const [instagramHandle, setInstagramHandle] = useState("");
   const [artistData, setArtistData] = useState(null);
-  const [spotifyAccessToken, setSpotifyAccessToken] = useState("");
-  const [selectedGenre, setSelectedGenre] = useState(null);
 
-  // Obtener token de Spotify (Client Credentials) al cargar la app
+  // Al cambiar el género o el token, se busca artistas de ese género
   useEffect(() => {
-    getSpotifyToken().then((token) => {
-      setSpotifyAccessToken(token);
-      console.log("Token de Spotify obtenido:", token);
-    });
-  }, []);
-
-  async function handleSearch(e) {
-    e.preventDefault();
-    if (!searchTerm || !spotifyAccessToken) return;
-
-    // Buscar artista en Spotify usando el token
-    const artist = await getArtist(searchTerm, spotifyAccessToken);
-    setArtistData(artist);
-    console.log("Artista encontrado:", artist);
-
-    // Seleccionar el primer género del artista para buscar relacionados
-    if (artist && artist.genres && artist.genres.length > 0) {
-      setSelectedGenre(artist.genres[0]);
-    } else {
-      setSelectedGenre(null);
+    async function fetchArtists() {
+      const results = await searchArtistsByGenre(genre, accessToken);
+      setArtists(results);
+      setSelectedArtist(null); // Reinicia el artista seleccionado al cambiar de género
     }
-  }
+    if (genre && accessToken) {
+      fetchArtists();
+    }
+  }, [genre, accessToken]);
+
+  // Al hacer clic en un artista, se obtienen sus estadísticas detalladas
+  const handleArtistClick = async (artistId) => {
+    const stats = await getArtistStats(artistId, accessToken);
+    setSelectedArtist(stats);
+  };
 
   return (
-    <div className="App">
-      <h2>Music Dash</h2>
-      <form onSubmit={handleSearch}>
-        <input
-          type="text"
-          placeholder="Search for an artist"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-        <button type="submit">Search</button>
-      </form>
+    <div>
+      <h3>Artistas de género "{genre}"</h3>
+      <ul>
+        {artists.map((artist) => (
+          <li
+            key={artist.id}
+            style={{ cursor: "pointer", color: "blue", marginBottom: "5px" }}
+            onClick={() => handleArtistClick(artist.id)}
+          >
+            {artist.name}
+          </li>
+        ))}
+      </ul>
 
-      <ArtistInfo artist={artistData} setSelectedGenre={setSelectedGenre} />
-
-      {/* Mostrar artistas relacionados por género */}
-      {selectedGenre && (
-        <GenreArtist genre={selectedGenre} accessToken={spotifyAccessToken} />
+      {selectedArtist && (
+        <div style={{ border: "1px solid #ccc", padding: "10px", marginTop: "20px" }}>
+          <h4>{selectedArtist.name}</h4>
+          <ArtistInfo artist={selectedArtist} instagramHandle={instagramHandle} />
+          {/* <img
+            src={selectedArtist.images.length > 0 ? selectedArtist.images[0].url : ""}
+            alt={selectedArtist.name}
+            width="200"
+          />
+          <p>Followers: {selectedArtist.followers.total.toLocaleString()}</p>
+          <p>Popularity: {selectedArtist.popularity}</p>
+          <p>Genres: {selectedArtist.genres.join(" ")}</p> */}
+        </div>
       )}
-
-      <h1 className="text-2xl font-bold mb-4">Music Dashboard</h1>
-      <Card>
-        <CardContent>
-          <AnalyzeSpotifyData />
-        </CardContent>
-      </Card>
     </div>
   );
-}
+};
 
-export default App;
-
+export default GenreArtist;
