@@ -1,74 +1,156 @@
-export async function exchangeCodeForToken(code) {
-  const response = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id: process.env.REACT_APP_CLIENT_ID,
-      client_secret: process.env.REACT_APP_CLIENT_SECRET,
-      code,
-      grant_type: "authorization_code",
-      redirect_uri: process.env.REACT_APP_REDIRECT_URI,
-    }),
-  });
-  const data = await response.json();
-  console.log("Respuesta del servidor:", data);
+// src/services/youtubeService.js
+import axios from 'axios';
 
-  if (!response.ok) {
-    console.error("Error en la solicitud de token:", data);
-    throw new Error("Error al obtener el token de acceso");
-  }
+// Reemplaza con tu clave de API real
+const API_KEY = 'AIzaSyAKQW8KXCcemxOUxZoD_gPKFD6J2wpyDw8';
+console.log('BUSCANDO VIDEOS');
+// Cache para almacenar resultados y minimizar llamadas a la API
+const cacheExpiration = 24 * 60 * 60 * 1000; // 24 horas
+const cache = new Map();
 
-  return data.access_token;
-}
-
-export async function getYouTubeChannelId(accessToken) { //errores al obtener id, revisar documentacion
-  try {
-    const response = await fetch("https://www.googleapis.com/youtube/v3/channels?part=id&mine=true", {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        Accept: "application/json",
-      },
-    });
-
-    const data = await response.json();
-    if (data.items && data.items.length > 0) {
-      return data.items[0].id;
-    } else {
-      throw new Error("No se encontró el canal del usuario");
+export const getTopArtistVideos = async (artistName, maxResults = 3) => {
+  if (!artistName) return [];
+  
+  // Crear una clave de caché que incluya el nombre del artista y la cantidad de resultados
+  const cacheKey = `${artistName}-${maxResults}`;
+  
+  // Comprobar si hay datos en caché
+  if (cache.has(cacheKey)) {
+    const { data, timestamp } = cache.get(cacheKey);
+    // Si la caché está fresca, usarla
+    if (Date.now() - timestamp < cacheExpiration) {
+      console.log(`Usando datos en caché YOUTUBE para ${artistName}`);
+      return data;
     }
-  } catch (error) {
-    console.error("Error al obtener el ID del canal:", error);
-    return null;
   }
-}
-
-export async function getYouTubeData(accessToken) {
-  console.log("Obteniendo datos de YouTube...");
+  
+  console.log(`Buscando videos de YouTube para: ${artistName}`);
+  
   try {
-    const channelId = await getYouTubeChannelId(accessToken);
-    if (!channelId) {
-      throw new Error("No se pudo obtener el ID del canal");
-    }
-
-    console.log("ID del canal obtenido:", channelId); // ✅ Agregado para depuración
-
-    const response = await fetch(
-      `https://youtubeanalytics.googleapis.com/v3/reports?ids=channel==${channelId}&metrics=views,subscribersGained&dimensions=day&startDate=2024-01-01&endDate=2024-03-18`,
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          Accept: "application/json",
-        },
+    // Búsqueda de videos del artista
+    const searchQuery = `${artistName} official music video`;
+    const searchResponse = await axios.get('https://www.googleapis.com/youtube/v3/search', {
+      params: {
+        key: API_KEY,
+        q: searchQuery,
+        part: 'snippet',
+        type: 'video',
+        videoEmbeddable: true,
+        maxResults: maxResults,
+        videoCategoryId: '10', // Categoría "Music"
+        order: 'viewCount', // Ordenar por número de vistas
       }
-    );
-
-    const data = await response.json();
-    console.log("Datos de YouTube RECIBIDOS:", data);
-    return data;
+    });
+    
+    // Extraer los IDs de los videos
+    const videoIds = searchResponse.data.items.map(item => item.id.videoId);
+    
+    // Obtener estadísticas detalladas de los videos
+    const videoResponse = await axios.get('https://www.googleapis.com/youtube/v3/videos', {
+      params: {
+        key: API_KEY,
+        id: videoIds.join(','),
+        part: 'snippet,statistics,contentDetails'
+      }
+    });
+    
+    // Procesar los resultados
+    const videos = videoResponse.data.items.map(video => ({
+      id: video.id,
+      title: video.snippet.title,
+      description: video.snippet.description,
+      publishedAt: video.snippet.publishedAt,
+      thumbnailUrl: video.snippet.thumbnails.high.url,
+      channelTitle: video.snippet.channelTitle,
+      channelId: video.snippet.channelId,
+      viewCount: parseInt(video.statistics.viewCount, 10),
+      likeCount: parseInt(video.statistics.likeCount, 10) || 0,
+      commentCount: parseInt(video.statistics.commentCount, 10) || 0,
+      duration: video.contentDetails.duration, // Formato ISO 8601
+      embedUrl: `https://www.youtube.com/embed/${video.id}`,
+      watchUrl: `https://www.youtube.com/watch?v=${video.id}`
+    }));
+    
+    // Guardar en caché
+    cache.set(cacheKey, {
+      data: videos,
+      timestamp: Date.now()
+    });
+    
+    return videos;
   } catch (error) {
-    console.error("Error al obtener datos de YouTube:", error);
-    return null;
+    console.error('Error al obtener videos de YouTube:', error.response?.data || error.message);
+    
+    // Si hay un error, intentar devolver datos en caché aunque estén expirados
+    if (cache.has(cacheKey)) {
+      console.log('Usando datos en caché expirados debido a un error');
+      return cache.get(cacheKey).data;
+    }
+    
+    // Si no hay caché, devolver videos de ejemplo
+    return [
+      {
+        id: 'dummyId1',
+        title: `${artistName} - Best Music Video (Example)`,
+        description: 'This is an example video when YouTube API is unavailable',
+        publishedAt: new Date().toISOString(),
+        thumbnailUrl: 'https://via.placeholder.com/480x360?text=Example+Music+Video',
+        channelTitle: artistName,
+        viewCount: 1000000,
+        likeCount: 50000,
+        embedUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', // Un video de respaldo
+        watchUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+      },
+      {
+        id: 'dummyId2',
+        title: `${artistName} - Live Performance (Example)`,
+        description: 'Example live performance video',
+        publishedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+        thumbnailUrl: 'https://via.placeholder.com/480x360?text=Live+Performance',
+        channelTitle: artistName,
+        viewCount: 500000,
+        likeCount: 25000,
+        embedUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+        watchUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+      },
+      {
+        id: 'dummyId3',
+        title: `${artistName} - Acoustic Session (Example)`,
+        description: 'Example acoustic session video',
+        publishedAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
+        thumbnailUrl: 'https://via.placeholder.com/480x360?text=Acoustic+Session',
+        channelTitle: artistName,
+        viewCount: 250000,
+        likeCount: 12500,
+        embedUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+        watchUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+      }
+    ];
   }
-}
+};
+
+// Función para formatear el número de vistas
+export const formatViewCount = (viewCount) => {
+  if (viewCount >= 1000000) {
+    return `${(viewCount / 1000000).toFixed(1)}M vistas`;
+  } else if (viewCount >= 1000) {
+    return `${(viewCount / 1000).toFixed(1)}K vistas`;
+  } else {
+    return `${viewCount} vistas`;
+  }
+};
+
+// Función para formatear la duración ISO 8601 a minutos:segundos
+export const formatDuration = (isoDuration) => {
+  const match = isoDuration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
+  
+  const hours = (match[1] && match[1].replace('H', '')) || 0;
+  const minutes = (match[2] && match[2].replace('M', '')) || 0;
+  const seconds = (match[3] && match[3].replace('S', '')) || 0;
+  
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  } else {
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  }
+};
