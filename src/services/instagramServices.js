@@ -133,9 +133,9 @@ export const getInstagramPosts = async (username, limit = 6) => {
     const url = `${BACKEND_URL}/api/instagram/top-posts/${cleanUsername}?limit=${limit}`;
     log(`📡 Llamando (SIN LOGIN): ${url}`);
 
-    // ✅ TIMEOUT MÁS CORTO PARA SIN LOGIN (60 segundos en lugar de 120)
+    // ✅ TIMEOUT AJUSTADO PARA SIN LOGIN (2 minutos - suficiente tiempo)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // 1 minuto
+    const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minutos
 
     try {
       const response = await fetch(url, {
@@ -211,7 +211,7 @@ export const getInstagramPosts = async (username, limit = 6) => {
       clearTimeout(timeoutId);
       
       if (fetchError.name === 'AbortError') {
-        throw new Error('Timeout (1 minuto) - Prueba con login para más tiempo');
+        throw new Error('Timeout (2 minutos) - El scraping toma más tiempo del esperado');
       } else {
         throw fetchError;
       }
@@ -252,9 +252,9 @@ export const getInstagramPostsWithLogin = async (username, limit = 6) => {
     const url = `${BACKEND_URL}/api/instagram/top-posts/${cleanUsername}?limit=${limit}&login=true`;
     log(`📡 Llamando (CON LOGIN): ${url}`);
 
-    // ✅ TIMEOUT MÁS LARGO PARA LOGIN (3 minutos)
+    // ✅ TIMEOUT PARA LOGIN (4 minutos - tiempo suficiente para login + scraping)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 180000); // 3 minutos
+    const timeoutId = setTimeout(() => controller.abort(), 240000); // 4 minutos
 
     try {
       const response = await fetch(url, {
@@ -298,7 +298,7 @@ export const getInstagramPostsWithLogin = async (username, limit = 6) => {
       clearTimeout(timeoutId);
       
       if (fetchError.name === 'AbortError') {
-        throw new Error('Timeout con login (3 minutos)');
+        throw new Error('Timeout con login (4 minutos) - Instagram puede estar bloqueando');
       } else {
         throw fetchError;
       }
@@ -340,15 +340,15 @@ export const getInstagramPostsAuto = async (username, limit = 6) => {
       !result.error?.includes('Timeout')
     );
     
-    // if (shouldTryLogin) {
-    //   logWarn(`🔄 Sin login no funcionó, intentando con login...`);
-    //   result = await getInstagramPostsWithLogin(username, limit);
-    //   result.fallback_used = true;
-    //   result.mode = 'auto_with_fallback';
-    // } else {
-    //   log(`✅ Modo sin login funcionó correctamente`);
-    //   result.mode = 'auto_fast_only';
-    // }
+    if (shouldTryLogin) {
+      logWarn(`🔄 Sin login no funcionó, intentando con login...`);
+      result = await getInstagramPostsWithLogin(username, limit);
+      result.fallback_used = true;
+      result.mode = 'auto_with_fallback';
+    } else {
+      log(`✅ Modo sin login funcionó correctamente`);
+      result.mode = 'auto_fast_only';
+    }
     
     return result;
     
@@ -408,7 +408,7 @@ export const getInstagramTestPosts = async (username) => {
 };
 
 /**
- *  FUNCIÓN PARA VERIFICAR ESTADO DEL SERVICIO
+ * 🏥 FUNCIÓN PARA VERIFICAR ESTADO DEL SERVICIO
  */
 export const checkInstagramHealth = async () => {
   try {
