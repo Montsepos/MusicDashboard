@@ -465,7 +465,7 @@ const normalizePost = (post) => {
     comment_count: Number(post.comment_count || post.comments || post.comment || 0),
     timestamp: Number(post.timestamp || post.taken_at || post.created_time || Date.now()),
     display_url: imageUrl,
-    is_video: Boolean(post.is_video || post.video_url || post.type === 'VIDEO'),
+    is_video: Boolean(post.is_video || post.video_url || post.type === 'VIDEO' || post.type === 'REEL'),
     // Campos adicionales que podrían ser útiles
     video_url: post.video_url || null,
     owner: post.owner || post.user || null,
@@ -486,7 +486,7 @@ const normalizePost = (post) => {
 };
 
 /**
- * Obtiene posts de Instagram para un usuario
+ * Obtiene posts de Instagram para un usuario (SIN LOGIN)
  */
 export const getInstagramPosts = async (username, limit = 6) => {
   try {
@@ -499,23 +499,28 @@ export const getInstagramPosts = async (username, limit = 6) => {
       throw new Error('Username de Instagram inválido');
     }
 
-    // ✅ CONSTRUIR URL CON PARÁMETROS
-    const url = `${BACKEND_URL}/api/instagram/${cleanUsername}?limit=${limit}`;
+    // llama a BACKEND
+    const url = `${BACKEND_URL}/api/instagram/top-posts/${cleanUsername}?limit=${limit}`;
     log(`Llamando a: ${url}`);
 
-    // ✅ REALIZAR PETICIÓN
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      },
-      timeout: 30000 // 30 segundos timeout
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 segundos
 
-    // ✅ VERIFICAR STATUS
-    if (!response.ok) {
-      throw new Error(`Error HTTP ${response.status}: ${response.statusText}`);
+    // LLAMADO
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error HTTP ${response.status}: ${response.statusText} - ${errorText}`);
     }
 
     // ✅ PARSEAR RESPUESTA
@@ -524,7 +529,9 @@ export const getInstagramPosts = async (username, limit = 6) => {
     log(`Respuesta recibida del scraper:`, {
       hasData: !!responseData,
       keys: Object.keys(responseData || {}),
-      dataType: typeof responseData
+      dataType: typeof responseData,
+      isArray: Array.isArray(responseData),
+      length: Array.isArray(responseData) ? responseData.length : 'N/A'
     });
 
     // ✅ VALIDAR ESTRUCTURA DE RESPUESTA
@@ -548,7 +555,7 @@ export const getInstagramPosts = async (username, limit = 6) => {
       success = responseData.success !== false;
       log(`✅ Formato directo - ${posts.length} posts encontrados`);
     }
-    // Formato 3: [ {...}, {...}, ... ] (array directo)
+    // Formato 3: [ {...}, {...}, ... ] (array directo) - ESTE ES EL FORMATO DE TU BACKEND
     else if (Array.isArray(responseData)) {
       posts = responseData;
       success = true;
@@ -653,6 +660,17 @@ export const getInstagramPosts = async (username, limit = 6) => {
       timestamp: Date.now()
     };
 
+      // ...procesar response...
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        logError('La petición fue abortada por timeout');
+      } else {
+        logError('Error en fetch:', error);
+      }
+    }
+
+    // ✅ VERIFICAR STATUS
+    
   } catch (error) {
     logError(`Error obteniendo posts de Instagram para @${username}: ${error.message}`, error);
     
@@ -671,33 +689,94 @@ export const getInstagramPosts = async (username, limit = 6) => {
 };
 
 /**
- * Obtiene posts de prueba (para testing)
+ * Obtiene posts de Instagram CON LOGIN (más datos disponibles)
  */
-export const getInstagramTestPosts = async (username) => {
+export const getInstagramPostsWithLogin = async (username, limit = 6) => {
   try {
-    log(`Obteniendo posts de prueba para @${username}...`);
+    log(`Obteniendo posts de Instagram CON LOGIN para @${username}...`);
 
     const cleanUsername = username.replace('@', '').trim();
-    const url = `${BACKEND_URL}/api/instagram/test/${cleanUsername}`;
     
-    const response = await fetch(url);
-    
-    if (!response.ok) {
-      throw new Error(`Error HTTP ${response.status}`);
+    if (!cleanUsername) {
+      throw new Error('Username de Instagram inválido');
     }
 
-    const data = await response.json();
+    // ✅ USAR ENDPOINT CON LOGIN
+    const url = `${BACKEND_URL}/api/instagram/top-posts/${cleanUsername}?limit=${limit}&login=true`;
+    log(`Llamando CON LOGIN a: ${url}`);
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      timeout: 120000 // 2 minutos timeout para login + scraping
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error HTTP ${response.status}: ${response.statusText} - ${errorText}`);
+    }
+
+    const responseData = await response.json();
     
+    // Procesar igual que la función anterior pero con más datos disponibles
+    let posts = Array.isArray(responseData) ? responseData : [];
+    
+    const validPosts = posts.filter(isValidPost).map(normalizePost);
+    const postsWithImages = validPosts.filter(p => p.display_url).length;
+    
+    log(`🔐 RESULTADO CON LOGIN: ${validPosts.length} posts válidos, ${postsWithImages} con imágenes`);
+
     return {
-      success: true,
+      success: validPosts.length > 0,
       username: cleanUsername,
-      posts: data.data?.posts || [],
-      posts_count: data.data?.posts?.length || 0,
+      posts: validPosts,
+      posts_count: validPosts.length,
+      posts_with_images: postsWithImages,
+      total_received: posts.length,
+      with_login: true,
       timestamp: Date.now()
     };
 
   } catch (error) {
-    logError(`Error obteniendo posts de prueba: ${error.message}`);
+    logError(`Error obteniendo posts CON LOGIN: ${error.message}`, error);
+    return {
+      success: false,
+      username: username.replace('@', '').trim(),
+      posts: [],
+      posts_count: 0,
+      posts_with_images: 0,
+      total_received: 0,
+      with_login: true,
+      error: error.message,
+      timestamp: Date.now()
+    };
+  }
+};
+
+/**
+ * Obtiene posts con fallback automático (sin login primero, con login si falla)
+ */
+export const getInstagramPostsAuto = async (username, limit = 6) => {
+  try {
+    log(`🔄 Intentando obtener posts para @${username} (modo automático)`);
+    
+    // Primer intento: sin login
+    let result = await getInstagramPosts(username, limit);
+    
+    // Si falla o no obtiene posts, intentar con login
+    if (!result.success || result.posts_count === 0) {
+      logWarn(`Sin login falló, intentando con login...`);
+      result = await getInstagramPostsWithLogin(username, limit);
+      result.fallback_used = true;
+    }
+    
+    return result;
+    
+  } catch (error) {
+    logError(`Error en modo automático: ${error.message}`, error);
     return {
       success: false,
       username: username.replace('@', '').trim(),
@@ -714,7 +793,7 @@ export const getInstagramTestPosts = async (username) => {
  */
 export const checkInstagramHealth = async () => {
   try {
-    const response = await fetch(`${BACKEND_URL}/api/instagram/health`);
+    const response = await fetch(`${BACKEND_URL}/health`);
     const data = await response.json();
     return data;
   } catch (error) {
@@ -725,6 +804,7 @@ export const checkInstagramHealth = async () => {
 
 export default {
   getInstagramPosts,
-  getInstagramTestPosts,
+  getInstagramPostsWithLogin,
+  getInstagramPostsAuto,
   checkInstagramHealth
 };

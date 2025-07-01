@@ -111,11 +111,12 @@ def main():
             
             # Mostrar resumen de posts
             print("\n[INFO] Resumen de posts obtenidos:")
-            for i, post in enumerate(posts, 1):
+            for post in posts: #in enumerate(posts, 1):
                 likes = post.get('like_count', 0)
                 post_type = post.get('type', 'IMAGE')
                 caption_preview = (post.get('caption', '')[:50] + '...') if len(post.get('caption', '')) > 50 else post.get('caption', '')
-                print(f"  {i}. [{post_type}] {likes:,} likes - \"{caption_preview}\"")
+                print(post)
+                # print(f"  {i}. [{post_type}] {likes:,} likes - \"{caption_preview}\"")
             
             # Guardar resultados en JSON
             output_file = os.path.join(os.path.dirname(__file__), 'instagram_posts.json')

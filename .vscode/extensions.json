@@ -1,0 +1,7 @@
+{
+    "recommendations": [
+        "anthropic.claude-code",
+        "codeontherocks.claude-config",
+        "andrepimenta.claude-code-chat"
+    ]
+}
