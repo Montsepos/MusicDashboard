@@ -1,365 +1,3 @@
-
-
-
-// const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
-
-// /**
-//  * Log helper para debugging
-//  */
-// const log = (message, data = null) => {
-//   console.log(`🔍 [INSTAGRAM SERVICES] ${message}`);
-//   if (data) console.log(data);
-// };
-
-// /**
-//  * Log de error helper
-//  */
-// const logError = (message, error = null) => {
-//   console.error(`❌ [INSTAGRAM SERVICES] ${message}`);
-//   if (error) console.error(error);
-// };
-
-// /**
-//  * Log de warning helper
-//  */
-// const logWarn = (message, data = null) => {
-//   console.warn(`⚠️ [INSTAGRAM SERVICES] ${message}`);
-//   if (data) console.warn(data);
-// };
-
-// /**
-//  * Valida si un post tiene la estructura correcta
-//  */
-// const isValidPost = (post) => {
-//   if (!post || typeof post !== 'object') {
-//     return false;
-//   }
-
-//   // ✅ VALIDACIÓN MÁS PERMISIVA - Solo campos esenciales
-//   const hasRequiredFields = (
-//     post.id && 
-//     (post.shortcode || post.code || post.media_id) // Flexible con identificadores
-//   );
-
-//   if (!hasRequiredFields) {
-//     logWarn('Post inválido - campos faltantes:', {
-//       id: !!post.id,
-//       shortcode: !!post.shortcode,
-//       code: !!post.code,
-//       media_id: !!post.media_id,
-//       availableKeys: Object.keys(post)
-//     });
-//     return false;
-//   }
-
-//   return true;
-// };
-
-// /**
-//  * Extrae la mejor URL de imagen disponible
-//  */
-// const extractImageUrl = (post) => {
-//   // Prioridad de URLs de imagen
-//   const possibleUrls = [
-//     post.display_url,
-//     post.thumbnail_url,
-//     post.media_url,
-//     post.image_url,
-//     post.src,
-//     post.url,
-//     post.preview_url,
-//     post.photo_url
-//   ];
-
-//   for (const url of possibleUrls) {
-//     if (url && typeof url === 'string' && url.length > 10) {
-//       // Verificar que la URL parece válida
-//       if (url.includes('instagram') || url.includes('cdninstagram') || url.includes('fbcdn')) {
-//         return url;
-//       }
-//     }
-//   }
-
-//   // Si no encuentra URL de Instagram, buscar cualquier URL válida
-//   for (const url of possibleUrls) {
-//     if (url && typeof url === 'string' && (url.startsWith('http') || url.startsWith('https'))) {
-//       return url;
-//     }
-//   }
-
-//   return null;
-// };
-
-// /**
-//  * Normaliza un post para asegurar formato consistente
-//  */
-// const normalizePost = (post) => {
-//   const imageUrl = extractImageUrl(post);
-  
-//   const normalized = {
-//     id: String(post.id || post.media_id || ''),
-//     shortcode: String(post.shortcode || post.code || post.id || ''),
-//     url: String(post.permalink || post.post_url || `https://instagram.com/p/${post.shortcode || post.code}/`),
-//     type: String(post.type || post.media_type || 'PHOTO').toUpperCase(),
-//     caption: String(post.caption || post.text || post.description || ''),
-//     like_count: Number(post.like_count || post.likes || post.like || 0),
-//     comment_count: Number(post.comment_count || post.comments || post.comment || 0),
-//     timestamp: Number(post.timestamp || post.taken_at || post.created_time || Date.now()),
-//     display_url: imageUrl,
-//     is_video: Boolean(post.is_video || post.video_url || post.type === 'VIDEO'),
-//     // Campos adicionales que podrían ser útiles
-//     video_url: post.video_url || null,
-//     owner: post.owner || post.user || null,
-//     width: Number(post.width || 0),
-//     height: Number(post.height || 0)
-//   };
-
-//   // Debug de la URL extraída
-//   if (imageUrl) {
-//     log(`📸 URL de imagen extraída para post ${normalized.shortcode}: ${imageUrl.substring(0, 50)}...`);
-//   } else {
-//     logWarn(`❌ No se pudo extraer URL de imagen para post ${normalized.shortcode}`, {
-//       availableFields: Object.keys(post).filter(key => key.toLowerCase().includes('url') || key.toLowerCase().includes('src') || key.toLowerCase().includes('image'))
-//     });
-//   }
-
-//   return normalized;
-// };
-
-// /**
-//  * Obtiene posts de Instagram para un usuario
-//  */
-// export const getInstagramPosts = async (username, limit = 6) => {
-//   try {
-//     log(`Obteniendo posts de Instagram para @${username}...`);
-
-//     // ✅ LIMPIAR USERNAME
-//     const cleanUsername = username.replace('@', '').trim();
-    
-//     if (!cleanUsername) {
-//       throw new Error('Username de Instagram inválido');
-//     }
-
-//     // ✅ CONSTRUIR URL CON PARÁMETROS
-//     const url = `${BACKEND_URL}/api/instagram/${cleanUsername}?limit=${limit}`;
-//     log(`Llamando a: ${url}`);
-
-//     // ✅ REALIZAR PETICIÓN
-//     const response = await fetch(url, {
-//       method: 'GET',
-//       headers: {
-//         'Accept': 'application/json',
-//         'Content-Type': 'application/json'
-//       },
-//       timeout: 30000 // 30 segundos timeout
-//     });
-
-//     // ✅ VERIFICAR STATUS
-//     if (!response.ok) {
-//       throw new Error(`Error HTTP ${response.status}: ${response.statusText}`);
-//     }
-
-//     // ✅ PARSEAR RESPUESTA
-//     const responseData = await response.json();
-    
-//     log(`Respuesta recibida del scraper:`, {
-//       hasData: !!responseData,
-//       keys: Object.keys(responseData || {}),
-//       dataType: typeof responseData
-//     });
-
-//     // ✅ VALIDAR ESTRUCTURA DE RESPUESTA
-//     if (!responseData) {
-//       throw new Error('Respuesta vacía del servidor');
-//     }
-
-//     // ✅ MANEJAR DIFERENTES FORMATOS DE RESPUESTA DEL SCRAPER
-//     let posts = [];
-//     let success = false;
-
-//     // Formato 1: { success: true, data: { posts: [...] } }
-//     if (responseData.data && Array.isArray(responseData.data.posts)) {
-//       posts = responseData.data.posts;
-//       success = responseData.success !== false;
-//       log(`✅ Formato con data wrapper - ${posts.length} posts encontrados`);
-//     }
-//     // Formato 2: { success: true, posts: [...] }
-//     else if (Array.isArray(responseData.posts)) {
-//       posts = responseData.posts;
-//       success = responseData.success !== false;
-//       log(`✅ Formato directo - ${posts.length} posts encontrados`);
-//     }
-//     // Formato 3: [ {...}, {...}, ... ] (array directo)
-//     else if (Array.isArray(responseData)) {
-//       posts = responseData;
-//       success = true;
-//       log(`✅ Formato array directo - ${posts.length} posts encontrados`);
-//     }
-//     // Formato 4: { items: [...] } (algunos scrapers usan 'items')
-//     else if (Array.isArray(responseData.items)) {
-//       posts = responseData.items;
-//       success = true;
-//       log(`✅ Formato con items - ${posts.length} posts encontrados`);
-//     }
-//     // Formato 5: { user: { edge_owner_to_timeline_media: { edges: [...] } } } (formato GraphQL)
-//     else if (responseData.user?.edge_owner_to_timeline_media?.edges) {
-//       posts = responseData.user.edge_owner_to_timeline_media.edges.map(edge => edge.node);
-//       success = true;
-//       log(`✅ Formato GraphQL - ${posts.length} posts encontrados`);
-//     }
-//     // Error en respuesta
-//     else if (responseData.error) {
-//       throw new Error(responseData.error);
-//     }
-//     else {
-//       logWarn('Formato de respuesta no reconocido, mostrando estructura completa:');
-//       console.log('📊 Respuesta completa del scraper:', responseData);
-      
-//       // Intentar extraer posts de cualquier array que encuentre
-//       const possibleArrays = Object.values(responseData).filter(val => Array.isArray(val));
-//       if (possibleArrays.length > 0) {
-//         posts = possibleArrays[0];
-//         success = true;
-//         log(`🔄 Usando primer array encontrado - ${posts.length} posts`);
-//       } else {
-//         posts = [];
-//         success = false;
-//       }
-//     }
-
-//     // ✅ DEBUG: MOSTRAR ESTRUCTURA DEL PRIMER POST
-//     if (posts.length > 0) {
-//       log(`📊 Estructura del primer post recibido:`, {
-//         keys: Object.keys(posts[0]),
-//         hasDisplayUrl: !!posts[0].display_url,
-//         hasImageUrl: !!posts[0].image_url,
-//         hasMediaUrl: !!posts[0].media_url,
-//         hasThumbnailUrl: !!posts[0].thumbnail_url,
-//         urlFields: Object.keys(posts[0]).filter(key => 
-//           key.toLowerCase().includes('url') || 
-//           key.toLowerCase().includes('src') || 
-//           key.toLowerCase().includes('image')
-//         )
-//       });
-//     }
-
-//     // ✅ VALIDAR Y NORMALIZAR POSTS
-//     const validPosts = [];
-    
-//     for (let i = 0; i < posts.length; i++) {
-//       const post = posts[i];
-      
-//       if (isValidPost(post)) {
-//         const normalizedPost = normalizePost(post);
-//         validPosts.push(normalizedPost);
-//         log(`✅ Post ${i + 1} procesado: ${normalizedPost.shortcode} ${normalizedPost.display_url ? '📸' : '❌'}`);
-//       } else {
-//         logWarn(`❌ Post ${i + 1} inválido, omitiendo...`);
-//         console.log('Post problemático:', post);
-//       }
-//     }
-
-//     // ✅ VERIFICAR QUE HAY POSTS VÁLIDOS
-//     if (validPosts.length === 0) {
-//       if (posts.length > 0) {
-//         logWarn(`Se recibieron ${posts.length} posts pero ninguno es válido`);
-//         console.log('Posts recibidos del scraper:', posts);
-//       } else {
-//         logWarn(`No se recibieron posts para @${cleanUsername}`);
-//       }
-//     }
-
-//     // ✅ ESTADÍSTICAS FINALES
-//     const postsWithImages = validPosts.filter(p => p.display_url).length;
-//     log(`🎯 RESULTADO FINAL: ${validPosts.length} posts válidos, ${postsWithImages} con imágenes para @${cleanUsername}`);
-
-//     // ✅ RETORNAR RESULTADO NORMALIZADO
-//     return {
-//       success: success && validPosts.length > 0,
-//       username: cleanUsername,
-//       posts: validPosts,
-//       posts_count: validPosts.length,
-//       posts_with_images: postsWithImages,
-//       total_received: posts.length,
-//       timestamp: Date.now()
-//     };
-
-//   } catch (error) {
-//     logError(`Error obteniendo posts de Instagram para @${username}: ${error.message}`, error);
-    
-//     // ✅ RETORNAR ESTRUCTURA CONSISTENTE EN CASO DE ERROR
-//     return {
-//       success: false,
-//       username: username.replace('@', '').trim(),
-//       posts: [],
-//       posts_count: 0,
-//       posts_with_images: 0,
-//       total_received: 0,
-//       error: error.message,
-//       timestamp: Date.now()
-//     };
-//   }
-// };
-
-// /**
-//  * Obtiene posts de prueba (para testing)
-//  */
-// export const getInstagramTestPosts = async (username) => {
-//   try {
-//     log(`Obteniendo posts de prueba para @${username}...`);
-
-//     const cleanUsername = username.replace('@', '').trim();
-//     const url = `${BACKEND_URL}/api/instagram/test/${cleanUsername}`;
-    
-//     const response = await fetch(url);
-    
-//     if (!response.ok) {
-//       throw new Error(`Error HTTP ${response.status}`);
-//     }
-
-//     const data = await response.json();
-    
-//     return {
-//       success: true,
-//       username: cleanUsername,
-//       posts: data.data?.posts || [],
-//       posts_count: data.data?.posts?.length || 0,
-//       timestamp: Date.now()
-//     };
-
-//   } catch (error) {
-//     logError(`Error obteniendo posts de prueba: ${error.message}`);
-//     return {
-//       success: false,
-//       username: username.replace('@', '').trim(),
-//       posts: [],
-//       posts_count: 0,
-//       error: error.message,
-//       timestamp: Date.now()
-//     };
-//   }
-// };
-
-// /**
-//  * Verifica el estado del servicio de Instagram
-//  */
-// export const checkInstagramHealth = async () => {
-//   try {
-//     const response = await fetch(`${BACKEND_URL}/api/instagram/health`);
-//     const data = await response.json();
-//     return data;
-//   } catch (error) {
-//     logError(`Error verificando salud del servicio: ${error.message}`);
-//     return { status: 'error', error: error.message };
-//   }
-// };
-
-// export default {
-//   getInstagramPosts,
-//   getInstagramTestPosts,
-//   checkInstagramHealth
-// };
-
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
 
 /**
@@ -394,10 +32,9 @@ const isValidPost = (post) => {
     return false;
   }
 
-  // ✅ VALIDACIÓN MÁS PERMISIVA - Solo campos esenciales
   const hasRequiredFields = (
     post.id && 
-    (post.shortcode || post.code || post.media_id) // Flexible con identificadores
+    (post.shortcode || post.code || post.media_id)
   );
 
   if (!hasRequiredFields) {
@@ -418,7 +55,6 @@ const isValidPost = (post) => {
  * Extrae la mejor URL de imagen disponible
  */
 const extractImageUrl = (post) => {
-  // Prioridad de URLs de imagen
   const possibleUrls = [
     post.display_url,
     post.thumbnail_url,
@@ -432,14 +68,12 @@ const extractImageUrl = (post) => {
 
   for (const url of possibleUrls) {
     if (url && typeof url === 'string' && url.length > 10) {
-      // Verificar que la URL parece válida
       if (url.includes('instagram') || url.includes('cdninstagram') || url.includes('fbcdn')) {
         return url;
       }
     }
   }
 
-  // Si no encuentra URL de Instagram, buscar cualquier URL válida
   for (const url of possibleUrls) {
     if (url && typeof url === 'string' && (url.startsWith('http') || url.startsWith('https'))) {
       return url;
@@ -466,47 +100,43 @@ const normalizePost = (post) => {
     timestamp: Number(post.timestamp || post.taken_at || post.created_time || Date.now()),
     display_url: imageUrl,
     is_video: Boolean(post.is_video || post.video_url || post.type === 'VIDEO' || post.type === 'REEL'),
-    // Campos adicionales que podrían ser útiles
     video_url: post.video_url || null,
     owner: post.owner || post.user || null,
     width: Number(post.width || 0),
     height: Number(post.height || 0)
   };
 
-  // Debug de la URL extraída
   if (imageUrl) {
     log(`📸 URL de imagen extraída para post ${normalized.shortcode}: ${imageUrl.substring(0, 50)}...`);
   } else {
-    logWarn(`❌ No se pudo extraer URL de imagen para post ${normalized.shortcode}`, {
-      availableFields: Object.keys(post).filter(key => key.toLowerCase().includes('url') || key.toLowerCase().includes('src') || key.toLowerCase().includes('image'))
-    });
+    logWarn(`❌ No se pudo extraer URL de imagen para post ${normalized.shortcode}`);
   }
 
   return normalized;
 };
 
 /**
- * Obtiene posts de Instagram para un usuario (SIN LOGIN)
+ * 🚀 FUNCIÓN PRINCIPAL - SIN LOGIN POR DEFECTO (RÁPIDA)
+ * Obtiene posts de Instagram SIN LOGIN para mayor velocidad
  */
 export const getInstagramPosts = async (username, limit = 6) => {
   try {
-    log(`Obteniendo posts de Instagram para @${username}...`);
+    log(`🏃‍♂️ MODO RÁPIDO: Obteniendo posts SIN LOGIN para @${username}...`);
 
-    // ✅ LIMPIAR USERNAME
     const cleanUsername = username.replace('@', '').trim();
     
     if (!cleanUsername) {
       throw new Error('Username de Instagram inválido');
     }
 
-    // llama a BACKEND
+    // ✅ URL SIN PARÁMETRO DE LOGIN (MÁS RÁPIDO)
     const url = `${BACKEND_URL}/api/instagram/top-posts/${cleanUsername}?limit=${limit}`;
-    log(`Llamando a: ${url}`);
+    log(`📡 Llamando (SIN LOGIN): ${url}`);
 
+    // ✅ TIMEOUT MÁS CORTO PARA SIN LOGIN (60 segundos en lugar de 120)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 segundos
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 1 minuto
 
-    // LLAMADO
     try {
       const response = await fetch(url, {
         method: 'GET',
@@ -516,165 +146,80 @@ export const getInstagramPosts = async (username, limit = 6) => {
         },
         signal: controller.signal
       });
+
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Error HTTP ${response.status}: ${response.statusText} - ${errorText}`);
-    }
+        const errorText = await response.text();
+        throw new Error(`Error HTTP ${response.status}: ${response.statusText} - ${errorText}`);
+      }
 
-    // ✅ PARSEAR RESPUESTA
-    const responseData = await response.json();
-    
-    log(`Respuesta recibida del scraper:`, {
-      hasData: !!responseData,
-      keys: Object.keys(responseData || {}),
-      dataType: typeof responseData,
-      isArray: Array.isArray(responseData),
-      length: Array.isArray(responseData) ? responseData.length : 'N/A'
-    });
-
-    // ✅ VALIDAR ESTRUCTURA DE RESPUESTA
-    if (!responseData) {
-      throw new Error('Respuesta vacía del servidor');
-    }
-
-    // ✅ MANEJAR DIFERENTES FORMATOS DE RESPUESTA DEL SCRAPER
-    let posts = [];
-    let success = false;
-
-    // Formato 1: { success: true, data: { posts: [...] } }
-    if (responseData.data && Array.isArray(responseData.data.posts)) {
-      posts = responseData.data.posts;
-      success = responseData.success !== false;
-      log(`✅ Formato con data wrapper - ${posts.length} posts encontrados`);
-    }
-    // Formato 2: { success: true, posts: [...] }
-    else if (Array.isArray(responseData.posts)) {
-      posts = responseData.posts;
-      success = responseData.success !== false;
-      log(`✅ Formato directo - ${posts.length} posts encontrados`);
-    }
-    // Formato 3: [ {...}, {...}, ... ] (array directo) - ESTE ES EL FORMATO DE TU BACKEND
-    else if (Array.isArray(responseData)) {
-      posts = responseData;
-      success = true;
-      log(`✅ Formato array directo - ${posts.length} posts encontrados`);
-    }
-    // Formato 4: { items: [...] } (algunos scrapers usan 'items')
-    else if (Array.isArray(responseData.items)) {
-      posts = responseData.items;
-      success = true;
-      log(`✅ Formato con items - ${posts.length} posts encontrados`);
-    }
-    // Formato 5: { user: { edge_owner_to_timeline_media: { edges: [...] } } } (formato GraphQL)
-    else if (responseData.user?.edge_owner_to_timeline_media?.edges) {
-      posts = responseData.user.edge_owner_to_timeline_media.edges.map(edge => edge.node);
-      success = true;
-      log(`✅ Formato GraphQL - ${posts.length} posts encontrados`);
-    }
-    // Error en respuesta
-    else if (responseData.error) {
-      throw new Error(responseData.error);
-    }
-    else {
-      logWarn('Formato de respuesta no reconocido, mostrando estructura completa:');
-      console.log('📊 Respuesta completa del scraper:', responseData);
+      const responseData = await response.json();
       
-      // Intentar extraer posts de cualquier array que encuentre
-      const possibleArrays = Object.values(responseData).filter(val => Array.isArray(val));
-      if (possibleArrays.length > 0) {
-        posts = possibleArrays[0];
+      log(`📊 Respuesta recibida (SIN LOGIN):`, {
+        isArray: Array.isArray(responseData),
+        length: Array.isArray(responseData) ? responseData.length : 'N/A'
+      });
+
+      // ✅ PROCESAMIENTO RÁPIDO DE RESPUESTA
+      let posts = [];
+      let success = false;
+
+      if (Array.isArray(responseData)) {
+        posts = responseData;
         success = true;
-        log(`🔄 Usando primer array encontrado - ${posts.length} posts`);
+        log(`✅ Formato directo - ${posts.length} posts encontrados`);
+      } else if (Array.isArray(responseData.posts)) {
+        posts = responseData.posts;
+        success = responseData.success !== false;
+        log(`✅ Formato anidado - ${posts.length} posts encontrados`);
+      } else if (responseData.error) {
+        throw new Error(responseData.error);
       } else {
         posts = [];
         success = false;
+        logWarn('Formato de respuesta no reconocido');
       }
-    }
 
-    // ✅ DEBUG: MOSTRAR ESTRUCTURA COMPLETA DEL PRIMER POST
-    if (posts.length > 0) {
-      console.log(`🔍 [DEBUG] PRIMER POST COMPLETO DEL SCRAPER:`, posts[0]);
-      log(`📊 Estructura del primer post recibido:`, {
-        keys: Object.keys(posts[0]),
-        hasDisplayUrl: !!posts[0].display_url,
-        hasImageUrl: !!posts[0].image_url,
-        hasMediaUrl: !!posts[0].media_url,
-        hasThumbnailUrl: !!posts[0].thumbnail_url,
-        urlFields: Object.keys(posts[0]).filter(key => 
-          key.toLowerCase().includes('url') || 
-          key.toLowerCase().includes('src') || 
-          key.toLowerCase().includes('image')
-        )
-      });
+      // ✅ VALIDACIÓN Y NORMALIZACIÓN RÁPIDA
+      const validPosts = [];
       
-      // Mostrar todas las URLs disponibles
-      const allUrls = {};
-      Object.keys(posts[0]).forEach(key => {
-        if (key.toLowerCase().includes('url') || key.toLowerCase().includes('src') || key.toLowerCase().includes('image')) {
-          allUrls[key] = posts[0][key];
+      for (let i = 0; i < posts.length; i++) {
+        const post = posts[i];
+        
+        if (isValidPost(post)) {
+          const normalizedPost = normalizePost(post);
+          validPosts.push(normalizedPost);
         }
-      });
-      console.log(`🔗 [DEBUG] TODAS LAS URLs DISPONIBLES:`, allUrls);
-    }
+      }
 
-    // ✅ VALIDAR Y NORMALIZAR POSTS
-    const validPosts = [];
-    
-    for (let i = 0; i < posts.length; i++) {
-      const post = posts[i];
+      const postsWithImages = validPosts.filter(p => p.display_url).length;
+      log(`🎯 RESULTADO RÁPIDO: ${validPosts.length} posts válidos, ${postsWithImages} con imágenes`);
+
+      return {
+        success: success && validPosts.length > 0,
+        username: cleanUsername,
+        posts: validPosts,
+        posts_count: validPosts.length,
+        posts_with_images: postsWithImages,
+        total_received: posts.length,
+        mode: 'fast_no_login',
+        timestamp: Date.now()
+      };
+
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
       
-      if (isValidPost(post)) {
-        const normalizedPost = normalizePost(post);
-        validPosts.push(normalizedPost);
-        log(`✅ Post ${i + 1} procesado: ${normalizedPost.shortcode} ${normalizedPost.display_url ? '📸' : '❌'}`);
+      if (fetchError.name === 'AbortError') {
+        throw new Error('Timeout (1 minuto) - Prueba con login para más tiempo');
       } else {
-        logWarn(`❌ Post ${i + 1} inválido, omitiendo...`);
-        console.log('Post problemático:', post);
+        throw fetchError;
       }
     }
 
-    // ✅ VERIFICAR QUE HAY POSTS VÁLIDOS
-    if (validPosts.length === 0) {
-      if (posts.length > 0) {
-        logWarn(`Se recibieron ${posts.length} posts pero ninguno es válido`);
-        console.log('Posts recibidos del scraper:', posts);
-      } else {
-        logWarn(`No se recibieron posts para @${cleanUsername}`);
-      }
-    }
-
-    // ✅ ESTADÍSTICAS FINALES
-    const postsWithImages = validPosts.filter(p => p.display_url).length;
-    log(`🎯 RESULTADO FINAL: ${validPosts.length} posts válidos, ${postsWithImages} con imágenes para @${cleanUsername}`);
-
-    // ✅ RETORNAR RESULTADO NORMALIZADO
-    return {
-      success: success && validPosts.length > 0,
-      username: cleanUsername,
-      posts: validPosts,
-      posts_count: validPosts.length,
-      posts_with_images: postsWithImages,
-      total_received: posts.length,
-      timestamp: Date.now()
-    };
-
-      // ...procesar response...
-    } catch (error) {
-      if (error.name === 'AbortError') {
-        logError('La petición fue abortada por timeout');
-      } else {
-        logError('Error en fetch:', error);
-      }
-    }
-
-    // ✅ VERIFICAR STATUS
-    
   } catch (error) {
-    logError(`Error obteniendo posts de Instagram para @${username}: ${error.message}`, error);
+    logError(`Error en modo rápido para @${username}: ${error.message}`, error);
     
-    // ✅ RETORNAR ESTRUCTURA CONSISTENTE EN CASO DE ERROR
     return {
       success: false,
       username: username.replace('@', '').trim(),
@@ -683,17 +228,19 @@ export const getInstagramPosts = async (username, limit = 6) => {
       posts_with_images: 0,
       total_received: 0,
       error: error.message,
+      mode: 'fast_no_login',
       timestamp: Date.now()
     };
   }
 };
 
 /**
- * Obtiene posts de Instagram CON LOGIN (más datos disponibles)
+ * 🔐 FUNCIÓN CON LOGIN (MÁS LENTA PERO MÁS DATOS)
+ * Solo usar cuando el modo rápido falle o se necesiten más datos
  */
 export const getInstagramPostsWithLogin = async (username, limit = 6) => {
   try {
-    log(`Obteniendo posts de Instagram CON LOGIN para @${username}...`);
+    log(`🔐 MODO CON LOGIN: Obteniendo posts CON LOGIN para @${username}...`);
 
     const cleanUsername = username.replace('@', '').trim();
     
@@ -701,47 +248,64 @@ export const getInstagramPostsWithLogin = async (username, limit = 6) => {
       throw new Error('Username de Instagram inválido');
     }
 
-    // ✅ USAR ENDPOINT CON LOGIN
+    // ✅ URL CON PARÁMETRO DE LOGIN
     const url = `${BACKEND_URL}/api/instagram/top-posts/${cleanUsername}?limit=${limit}&login=true`;
-    log(`Llamando CON LOGIN a: ${url}`);
+    log(`📡 Llamando (CON LOGIN): ${url}`);
 
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      },
-      timeout: 120000 // 2 minutos timeout para login + scraping
-    });
+    // ✅ TIMEOUT MÁS LARGO PARA LOGIN (3 minutos)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 180000); // 3 minutos
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Error HTTP ${response.status}: ${response.statusText} - ${errorText}`);
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Error HTTP ${response.status}: ${response.statusText} - ${errorText}`);
+      }
+
+      const responseData = await response.json();
+      
+      let posts = Array.isArray(responseData) ? responseData : [];
+      
+      const validPosts = posts.filter(isValidPost).map(normalizePost);
+      const postsWithImages = validPosts.filter(p => p.display_url).length;
+      
+      log(`🔐 RESULTADO CON LOGIN: ${validPosts.length} posts válidos, ${postsWithImages} con imágenes`);
+
+      return {
+        success: validPosts.length > 0,
+        username: cleanUsername,
+        posts: validPosts,
+        posts_count: validPosts.length,
+        posts_with_images: postsWithImages,
+        total_received: posts.length,
+        with_login: true,
+        mode: 'with_login',
+        timestamp: Date.now()
+      };
+
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      
+      if (fetchError.name === 'AbortError') {
+        throw new Error('Timeout con login (3 minutos)');
+      } else {
+        throw fetchError;
+      }
     }
 
-    const responseData = await response.json();
-    
-    // Procesar igual que la función anterior pero con más datos disponibles
-    let posts = Array.isArray(responseData) ? responseData : [];
-    
-    const validPosts = posts.filter(isValidPost).map(normalizePost);
-    const postsWithImages = validPosts.filter(p => p.display_url).length;
-    
-    log(`🔐 RESULTADO CON LOGIN: ${validPosts.length} posts válidos, ${postsWithImages} con imágenes`);
-
-    return {
-      success: validPosts.length > 0,
-      username: cleanUsername,
-      posts: validPosts,
-      posts_count: validPosts.length,
-      posts_with_images: postsWithImages,
-      total_received: posts.length,
-      with_login: true,
-      timestamp: Date.now()
-    };
-
   } catch (error) {
-    logError(`Error obteniendo posts CON LOGIN: ${error.message}`, error);
+    logError(`Error con login para @${username}: ${error.message}`, error);
     return {
       success: false,
       username: username.replace('@', '').trim(),
@@ -751,45 +315,100 @@ export const getInstagramPostsWithLogin = async (username, limit = 6) => {
       total_received: 0,
       with_login: true,
       error: error.message,
+      mode: 'with_login',
       timestamp: Date.now()
     };
   }
 };
 
 /**
- * Obtiene posts con fallback automático (sin login primero, con login si falla)
+ * 🔄 FUNCIÓN INTELIGENTE CON FALLBACK CONTROLADO
+ * Primero sin login (rápido), solo usa login si realmente es necesario
  */
 export const getInstagramPostsAuto = async (username, limit = 6) => {
   try {
-    log(`🔄 Intentando obtener posts para @${username} (modo automático)`);
+    log(`🔄 MODO INTELIGENTE: Iniciando para @${username}...`);
     
-    // Primer intento: sin login
+    // ✅ PRIMER INTENTO: SIN LOGIN (RÁPIDO)
     let result = await getInstagramPosts(username, limit);
     
-    // Si falla o no obtiene posts, intentar con login
-    if (!result.success || result.posts_count === 0) {
-      logWarn(`Sin login falló, intentando con login...`);
-      result = await getInstagramPostsWithLogin(username, limit);
-      result.fallback_used = true;
-    }
+    // ✅ SOLO USAR LOGIN SI REALMENTE ES NECESARIO
+    // Criterios: No hay posts Y no hay error de timeout
+    const shouldTryLogin = (
+      !result.success && 
+      result.posts_count === 0 && 
+      !result.error?.includes('Timeout')
+    );
+    
+    // if (shouldTryLogin) {
+    //   logWarn(`🔄 Sin login no funcionó, intentando con login...`);
+    //   result = await getInstagramPostsWithLogin(username, limit);
+    //   result.fallback_used = true;
+    //   result.mode = 'auto_with_fallback';
+    // } else {
+    //   log(`✅ Modo sin login funcionó correctamente`);
+    //   result.mode = 'auto_fast_only';
+    // }
     
     return result;
     
   } catch (error) {
-    logError(`Error en modo automático: ${error.message}`, error);
+    logError(`Error en modo inteligente: ${error.message}`, error);
     return {
       success: false,
       username: username.replace('@', '').trim(),
       posts: [],
       posts_count: 0,
       error: error.message,
+      mode: 'auto_error',
       timestamp: Date.now()
     };
   }
 };
 
 /**
- * Verifica el estado del servicio de Instagram
+ * 🧪 FUNCIÓN DE PRUEBA PARA TESTING
+ */
+export const getInstagramTestPosts = async (username) => {
+  try {
+    log(`🧪 Obteniendo posts de prueba para @${username}...`);
+
+    const cleanUsername = username.replace('@', '').trim();
+    const url = `${BACKEND_URL}/api/instagram/test/${cleanUsername}`;
+    
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      throw new Error(`Error HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    
+    return {
+      success: true,
+      username: cleanUsername,
+      posts: data.data?.posts || [],
+      posts_count: data.data?.posts?.length || 0,
+      mode: 'test',
+      timestamp: Date.now()
+    };
+
+  } catch (error) {
+    logError(`Error obteniendo posts de prueba: ${error.message}`);
+    return {
+      success: false,
+      username: username.replace('@', '').trim(),
+      posts: [],
+      posts_count: 0,
+      error: error.message,
+      mode: 'test',
+      timestamp: Date.now()
+    };
+  }
+};
+
+/**
+ *  FUNCIÓN PARA VERIFICAR ESTADO DEL SERVICIO
  */
 export const checkInstagramHealth = async () => {
   try {
@@ -802,9 +421,11 @@ export const checkInstagramHealth = async () => {
   }
 };
 
+// ✅ EXPORTAR TODAS LAS FUNCIONES
 export default {
-  getInstagramPosts,
-  getInstagramPostsWithLogin,
-  getInstagramPostsAuto,
-  checkInstagramHealth
+  getInstagramPosts,          // 🚀 Función principal (SIN LOGIN - RÁPIDA)
+  getInstagramPostsWithLogin, // 🔐 Con login (más lenta)
+  getInstagramPostsAuto,      // 🔄 Inteligente con fallback controlado
+  getInstagramTestPosts,      // 🧪 Para testing
+  checkInstagramHealth        // 🏥 Health check
 };

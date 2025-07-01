@@ -1,338 +1,7 @@
-
-# import time
-# import json
-# import os
-# from selenium import webdriver
-# from selenium.webdriver.chrome.service import Service
-# from selenium.webdriver.chrome.options import Options
-# from selenium.webdriver.common.by import By
-# from selenium.webdriver.support.ui import WebDriverWait
-# from selenium.webdriver.support import expected_conditions as EC
-# from bs4 import BeautifulSoup
-# import requests
-# from datetime import datetime
-# import re
-# from webdriver_manager.chrome import ChromeDriverManager
-
-# class InstagramScraper:
-#     def __init__(self):
-#         print("[INFO] Inicializando InstagramScraper con Selenium...")
-        
-#         # Configurar opciones de Chrome
-#         self.chrome_options = Options()
-#         self.chrome_options.add_argument("--headless")  # Ejecutar en modo sin cabeza
-#         self.chrome_options.add_argument("--no-sandbox")
-#         self.chrome_options.add_argument("--disable-dev-shm-usage")
-#         self.chrome_options.add_argument("--disable-gpu")
-#         self.chrome_options.add_argument("--window-size=1920,1080")
-#         self.chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-        
-#         try:
-#             # Usar webdriver-manager para gestionar automáticamente el chromedriver
-#             print("[INFO] Instalando/configurando ChromeDriver...")
-#             self.service = Service(ChromeDriverManager().install())
-#             self.driver = webdriver.Chrome(service=self.service, options=self.chrome_options)
-#             print("[SUCCESS] ChromeDriver configurado correctamente")
-#         except Exception as e:
-#             print(f"[ERROR] Error configurando ChromeDriver: {e}")
-#             raise e
-        
-#         # Tiempo de espera predeterminado
-#         self.wait = WebDriverWait(self.driver, 15)
-        
-#     def get_top_posts(self, username, limit=6, login_required=False):
-#         """Obtiene los posts más populares de un usuario de Instagram"""
-#         print(f"[INFO] Scraping Instagram profile: @{username}")
-        
-#         # URL del perfil de Instagram
-#         profile_url = f"https://www.instagram.com/{username}/"
-#         print(f"[DEBUG] URL: {profile_url}")
-        
-#         try:
-#             # Abrir la página del perfil
-#             print("[DEBUG] Abriendo página del perfil...")
-#             self.driver.get(profile_url)
-#             time.sleep(5)  # Esperar a que cargue la página
-            
-#             # Manejar cookies/dialogs
-#             self._handle_initial_dialogs()
-            
-#             # Verificar si el perfil existe y es público
-#             if self._is_private_or_not_found():
-#                 print(f"[WARN] Perfil @{username} no encontrado o es privado")
-#                 return []
-            
-#             # Esperar a que carguen las publicaciones
-#             print("[DEBUG] Esperando a que carguen las publicaciones...")
-#             try:
-#                 self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "article a[href*='/p/']")))
-#                 print("[SUCCESS] Publicaciones cargadas")
-#             except Exception as e:
-#                 print(f"[WARN] No se pudieron cargar las publicaciones: {e}")
-#                 return []
-            
-#             # Obtener enlaces a las publicaciones
-#             post_links = self.driver.find_elements(By.CSS_SELECTOR, "article a[href*='/p/']")
-#             print(f"[INFO] Encontrados {len(post_links)} enlaces de posts")
-            
-#             # Guardar los URLs en lugar de los elementos para evitar referencias obsoletas
-#             post_urls = []
-#             for link in post_links[:min(12, len(post_links))]:  # Limitar a 12 posts
-#                 href = link.get_attribute("href")
-#                 if href and "/p/" in href:
-#                     post_urls.append(href)
-            
-#             print(f"[INFO] URLs válidas de posts: {len(post_urls)}")
-            
-#             if not post_urls:
-#                 print("[WARN] No se encontraron URLs de posts válidas")
-#                 return []
-            
-#             posts = []
-            
-#             # Extraer información de cada post
-#             for i, post_url in enumerate(post_urls[:min(10, len(post_urls))]):  # Analizar hasta 10 posts
-#                 try:
-#                     print(f"[DEBUG] Procesando post {i+1}/{min(10, len(post_urls))}: {post_url}")
-                    
-#                     # Abrir la página del post
-#                     self.driver.get(post_url)
-#                     time.sleep(3)  # Esperar a que cargue la página
-                    
-#                     post_data = self._extract_post_data(post_url)
-                    
-#                     if post_data and post_data.get('like_count', 0) > 0:
-#                         posts.append(post_data)
-#                         print(f"[SUCCESS] Post procesado: {post_data['like_count']} likes")
-#                     else:
-#                         print(f"[WARN] Post sin datos válidos o sin likes")
-                        
-#                 except Exception as e:
-#                     print(f"[ERROR] Error procesando post {post_url}: {e}")
-#                     continue
-            
-#             # Ordenar posts por likes (descendente)
-#             posts.sort(key=lambda x: x.get('like_count', 0), reverse=True)
-            
-#             # Limitar a la cantidad solicitada
-#             top_posts = posts[:limit]
-            
-#             print(f"[SUCCESS] {len(top_posts)} posts procesados exitosamente para @{username}")
-#             return top_posts
-            
-#         except Exception as e:
-#             print(f"[ERROR] Error general scraping Instagram: {e}")
-#             return []
-#         finally:
-#             # Volver a Instagram home para evitar quedarse en posts individuales
-#             try:
-#                 self.driver.get("https://www.instagram.com")
-#             except:
-#                 pass
-    
-#     def _handle_initial_dialogs(self):
-#         """Maneja dialogs iniciales como cookies"""
-#         try:
-#             # Intentar cerrar dialog de cookies
-#             cookie_buttons = [
-#                 "//button[contains(text(), 'Allow essential and optional cookies')]",
-#                 "//button[contains(text(), 'Accept')]", 
-#                 "//button[contains(text(), 'Accept All')]",
-#                 "//button[contains(text(), 'Allow all cookies')]"
-#             ]
-            
-#             for button_xpath in cookie_buttons:
-#                 try:
-#                     cookie_button = self.driver.find_element(By.XPATH, button_xpath)
-#                     cookie_button.click()
-#                     print("[DEBUG] Dialog de cookies cerrado")
-#                     time.sleep(1)
-#                     break
-#                 except:
-#                     continue
-                    
-#         except Exception as e:
-#             print(f"[DEBUG] No se encontraron dialogs de cookies: {e}")
-    
-#     def _is_private_or_not_found(self):
-#         """Verifica si el perfil es privado o no existe"""
-#         try:
-#             # Buscar indicadores de perfil privado
-#             private_indicators = [
-#                 "This Account is Private",
-#                 "This account is private",
-#                 "Sorry, this page isn't available"
-#             ]
-            
-#             page_source = self.driver.page_source
-#             for indicator in private_indicators:
-#                 if indicator in page_source:
-#                     return True
-            
-#             return False
-            
-#         except:
-#             return True
-    
-#     def _extract_post_data(self, post_url):
-#         """Extrae datos de un post individual"""
-#         try:
-#             # Extraer shortcode del URL
-#             shortcode_match = re.search(r'/p/([^/]+)/', post_url)
-#             shortcode = shortcode_match.group(1) if shortcode_match else ""
-            
-#             # Extraer likes de meta description
-#             like_count = self._extract_likes_from_meta()
-            
-#             # Extraer imagen/video
-#             media_url = self._extract_media_url()
-            
-#             # Extraer caption
-#             caption = self._extract_caption()
-            
-#             # Extraer fecha
-#             timestamp = self._extract_timestamp()
-            
-#             # Determinar tipo de post
-#             post_type = "VIDEO" if self._is_video_post() else "IMAGE"
-            
-#             post_data = {
-#                 "id": shortcode,
-#                 "shortcode": shortcode,
-#                 "media_url": media_url,
-#                 "caption": caption,
-#                 "like_count": like_count,
-#                 "timestamp": timestamp,
-#                 "type": post_type
-#             }
-            
-#             return post_data
-            
-#         except Exception as e:
-#             print(f"[ERROR] Error extrayendo datos del post: {e}")
-#             return None
-    
-#     def _extract_likes_from_meta(self):
-#         """Extrae likes de meta description"""
-#         try:
-#             # Buscar en meta description
-#             meta_description = self.driver.find_element(By.XPATH, "//meta[@name='description']").get_attribute("content")
-            
-#             # Buscar patrones de likes
-#             likes_patterns = [
-#                 r'(\d+(?:,\d+)*) likes',
-#                 r'(\d+(?:,\d+)*) Me gusta',
-#                 r'(\d+[KMB]?) likes',
-#                 r'(\d+[KMB]?) Me gusta'
-#             ]
-            
-#             for pattern in likes_patterns:
-#                 likes_match = re.search(pattern, meta_description)
-#                 if likes_match:
-#                     return self.parse_likes_count(likes_match.group(1))
-            
-#             return 0
-            
-#         except Exception as e:
-#             print(f"[DEBUG] Error extrayendo likes de meta: {e}")
-#             return 0
-    
-#     def _extract_media_url(self):
-#         """Extrae URL de imagen o video"""
-#         try:
-#             # Intentar encontrar imagen primero
-#             selectors = [
-#                 "article img[src*='cdninstagram']",
-#                 "article img[src*='instagram']", 
-#                 "article img",
-#                 "article video[src*='cdninstagram']",
-#                 "article video[src*='instagram']",
-#                 "article video"
-#             ]
-            
-#             for selector in selectors:
-#                 try:
-#                     element = self.driver.find_element(By.CSS_SELECTOR, selector)
-#                     media_url = element.get_attribute("src")
-#                     if media_url and len(media_url) > 10:
-#                         return media_url
-#                 except:
-#                     continue
-            
-#             return None
-            
-#         except Exception as e:
-#             print(f"[DEBUG] Error extrayendo media URL: {e}")
-#             return None
-    
-#     def _extract_caption(self):
-#         """Extrae caption del post"""
-#         try:
-#             # Intentar extraer de meta tags
-#             meta_tags = self.driver.find_elements(By.TAG_NAME, "meta")
-            
-#             for meta in meta_tags:
-#                 property_attr = meta.get_attribute("property")
-#                 name_attr = meta.get_attribute("name")
-                
-#                 if property_attr == "og:description" or name_attr == "description":
-#                     content = meta.get_attribute("content")
-#                     if content and ": \"" in content:
-#                         parts = content.split(": \"", 1)
-#                         if len(parts) > 1:
-#                             caption = parts[1].rstrip("\". ")
-#                             return caption[:500]  # Limitar longitud
-            
-#             return ""
-            
-#         except Exception as e:
-#             print(f"[DEBUG] Error extrayendo caption: {e}")
-#             return ""
-    
-#     def _extract_timestamp(self):
-#         """Extrae timestamp del post"""
-#         try:
-#             time_elem = self.driver.find_element(By.TAG_NAME, "time")
-#             timestamp = time_elem.get_attribute("datetime")
-#             return timestamp or ""
-#         except:
-#             return ""
-    
-#     def _is_video_post(self):
-#         """Determina si el post es un video"""
-#         try:
-#             video_elements = self.driver.find_elements(By.CSS_SELECTOR, "article video")
-#             return len(video_elements) > 0
-#         except:
-#             return False
-    
-#     def parse_likes_count(self, likes_text):
-#         """Convierte texto de likes a número"""
-#         try:
-#             likes_text = str(likes_text).replace(",", "").replace(".", "")
-            
-#             if "K" in likes_text:
-#                 return int(float(likes_text.replace("K", "")) * 1000)
-#             elif "M" in likes_text:
-#                 return int(float(likes_text.replace("M", "")) * 1000000)
-#             elif "B" in likes_text:
-#                 return int(float(likes_text.replace("B", "")) * 1000000000)
-#             else:
-#                 return int(likes_text)
-#         except:
-#             return 0
-    
-#     def close(self):
-#         """Cierra el navegador"""
-#         try:
-#             print("[INFO] Cerrando navegador...")
-#             self.driver.quit()
-#             print("[SUCCESS] Navegador cerrado")
-#         except Exception as e:
-#             print(f"[ERROR] Error cerrando navegador: {e}")
 import time
 import json
 import os
+import sys
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -346,9 +15,44 @@ from datetime import datetime
 import re
 from webdriver_manager.chrome import ChromeDriverManager
 
+# ✅ CONFIGURAR ENCODING UTF-8 PARA WINDOWS
+if sys.platform == "win32":
+    import locale
+    try:
+        locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
+    except:
+        try:
+            locale.setlocale(locale.LC_ALL, 'C.UTF-8')
+        except:
+            pass
+
+def safe_print(message):
+    """Imprime de forma segura evitando errores de Unicode"""
+    try:
+        print(message)
+    except UnicodeEncodeError:
+        # Reemplazar caracteres problemáticos
+        safe_message = message.encode('ascii', 'replace').decode('ascii')
+        print(safe_message)
+    except Exception:
+        print("[LOG] (error de encoding en mensaje)")
+
+def safe_str(value, max_length=100):
+    """Convierte a string de forma segura"""
+    try:
+        if value is None:
+            return "None"
+        str_value = str(value)
+        if len(str_value) > max_length:
+            str_value = str_value[:max_length] + "..."
+        # Reemplazar caracteres problemáticos
+        return str_value.encode('ascii', 'replace').decode('ascii')
+    except Exception:
+        return "[VALUE_ERROR]"
+
 class InstagramScraper:
     def __init__(self):
-        print("[INFO] Inicializando InstagramScraper con Selenium...")
+        safe_print("[INFO] Inicializando InstagramScraper con Selenium...")
         
         # Configurar opciones de Chrome
         self.chrome_options = Options()
@@ -363,13 +67,13 @@ class InstagramScraper:
         self.chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
         
         try:
-            print("[INFO] Instalando/configurando ChromeDriver...")
+            safe_print("[INFO] Instalando/configurando ChromeDriver...")
             self.service = Service(ChromeDriverManager().install())
             self.driver = webdriver.Chrome(service=self.service, options=self.chrome_options)
             self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-            print("[SUCCESS] ChromeDriver configurado correctamente")
+            safe_print("[SUCCESS] ChromeDriver configurado correctamente")
         except Exception as e:
-            print(f"[ERROR] Error configurando ChromeDriver: {e}")
+            safe_print(f"[ERROR] Error configurando ChromeDriver: {e}")
             raise e
         
         # Tiempo de espera predeterminado
@@ -377,21 +81,21 @@ class InstagramScraper:
         
     def get_top_posts(self, username, limit=6, login_required=False):
         """Obtiene los posts más populares de un usuario de Instagram"""
-        print(f"[INFO] Scraping Instagram profile: @{username} (login: {login_required})")
+        safe_print(f"[INFO] Scraping Instagram profile: @{username} (login: {login_required})")
         
         try:
             # Realizar login si es requerido
             if login_required:
                 login_success = self._perform_login()
                 if not login_success:
-                    print("[WARN] Login falló, continuando sin login...")
+                    safe_print("[WARN] Login falló, continuando sin login...")
                 else:
-                    print("[SUCCESS] Login exitoso")
+                    safe_print("[SUCCESS] Login exitoso")
                     time.sleep(3)
             
             # URL del perfil de Instagram
             profile_url = f"https://www.instagram.com/{username}/"
-            print(f"[DEBUG] Navegando a: {profile_url}")
+            safe_print(f"[DEBUG] Navegando a: {profile_url}")
             
             # Abrir la página del perfil
             self.driver.get(profile_url)
@@ -403,11 +107,11 @@ class InstagramScraper:
             
             # Verificar si el perfil existe y es público
             if self._is_private_or_not_found():
-                print(f"[WARN] Perfil @{username} no encontrado o es privado")
+                safe_print(f"[WARN] Perfil @{username} no encontrado o es privado")
                 return []
             
             # Esperar a que carguen las publicaciones con selectores actualizados
-            print("[DEBUG] Esperando a que carguen las publicaciones...")
+            safe_print("[DEBUG] Esperando a que carguen las publicaciones...")
             post_selectors = [
                 "article a[href*='/p/']",
                 "article a[href*='/reel/']",
@@ -420,13 +124,13 @@ class InstagramScraper:
                 try:
                     self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, selector)))
                     posts_found = True
-                    print(f"[SUCCESS] Publicaciones encontradas con selector: {selector}")
+                    safe_print(f"[SUCCESS] Publicaciones encontradas con selector: {selector}")
                     break
                 except TimeoutException:
                     continue
             
             if not posts_found:
-                print("[WARN] No se pudieron encontrar publicaciones con ningún selector")
+                safe_print("[WARN] No se pudieron encontrar publicaciones con ningún selector")
                 return []
             
             # Scroll para cargar más posts
@@ -438,7 +142,7 @@ class InstagramScraper:
                 elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
                 post_links.extend(elements)
             
-            print(f"[INFO] Encontrados {len(post_links)} enlaces de posts")
+            safe_print(f"[INFO] Encontrados {len(post_links)} enlaces de posts")
             
             # Extraer URLs únicos
             post_urls = []
@@ -453,10 +157,10 @@ class InstagramScraper:
                 except:
                     continue
             
-            print(f"[INFO] URLs únicos de posts: {len(post_urls)}")
+            safe_print(f"[INFO] URLs únicos de posts: {len(post_urls)}")
             
             if not post_urls:
-                print("[WARN] No se encontraron URLs de posts válidas")
+                safe_print("[WARN] No se encontraron URLs de posts válidas")
                 return []
             
             posts = []
@@ -465,7 +169,7 @@ class InstagramScraper:
             # Extraer información de cada post
             for i, post_url in enumerate(post_urls[:max_posts_to_check]):
                 try:
-                    print(f"[DEBUG] Procesando post {i+1}/{max_posts_to_check}: {post_url}")
+                    safe_print(f"[DEBUG] Procesando post {i+1}/{max_posts_to_check}: {post_url}")
                     
                     # Abrir la página del post
                     self.driver.get(post_url)
@@ -473,14 +177,16 @@ class InstagramScraper:
                     
                     post_data = self._extract_post_data(post_url)
                     
-                    if post_data and post_data.get('like_count', 0) >= 0:  # Aceptar posts con 0 likes también
+                    if post_data and isinstance(post_data, dict):  # Verificar que es un dict válido
                         posts.append(post_data)
-                        print(f"[SUCCESS] Post procesado: {post_data['like_count']} likes")
+                        likes = post_data.get('like_count', 0)
+                        post_type = post_data.get('type', 'UNKNOWN')
+                        safe_print(f"[SUCCESS] Post {i+1} procesado: {likes} likes, tipo: {post_type}")
                     else:
-                        print(f"[WARN] Post sin datos válidos")
+                        safe_print(f"[WARN] Post {i+1} sin datos válidos")
                         
                 except Exception as e:
-                    print(f"[ERROR] Error procesando post {post_url}: {e}")
+                    safe_print(f"[ERROR] Error procesando post {i+1}: {safe_str(str(e))}")
                     continue
             
             # Ordenar posts por likes (descendente)
@@ -489,11 +195,28 @@ class InstagramScraper:
             # Limitar a la cantidad solicitada
             top_posts = posts[:limit]
             
-            print(f"[SUCCESS] {len(top_posts)} posts procesados exitosamente para @{username}")
+            safe_print(f"[SUCCESS] {len(top_posts)} posts procesados exitosamente para @{username}")
+            
+            # ✅ DEBUG SEGURO: mostrar estructura sin caracteres problemáticos
+            if top_posts:
+                safe_print("[DEBUG] Estructura del primer post:")
+                try:
+                    for key, value in top_posts[0].items():
+                        safe_key = safe_str(key, 20)
+                        safe_value = safe_str(value, 50)
+                        safe_print(f"  {safe_key}: {type(value).__name__} = {safe_value}")
+                except Exception as e:
+                    safe_print(f"[DEBUG] Error mostrando estructura: {safe_str(str(e))}")
+            
             return top_posts
             
         except Exception as e:
-            print(f"[ERROR] Error general scraping Instagram: {e}")
+            safe_print(f"[ERROR] Error general scraping Instagram: {safe_str(str(e))}")
+            import traceback
+            try:
+                traceback.print_exc()
+            except:
+                safe_print("[ERROR] No se pudo mostrar traceback completo")
             return []
         finally:
             # Volver a Instagram home
@@ -506,17 +229,17 @@ class InstagramScraper:
     def _scroll_to_load_posts(self):
         """Hace scroll para cargar más posts"""
         try:
-            print("[DEBUG] Haciendo scroll para cargar más posts...")
+            safe_print("[DEBUG] Haciendo scroll para cargar más posts...")
             for i in range(3):
                 self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
                 time.sleep(2)
         except Exception as e:
-            print(f"[DEBUG] Error en scroll: {e}")
+            safe_print(f"[DEBUG] Error en scroll: {safe_str(str(e))}")
     
     def _handle_initial_dialogs(self):
         """Maneja dialogs iniciales como cookies"""
         try:
-            print("[DEBUG] Manejando dialogs iniciales...")
+            safe_print("[DEBUG] Manejando dialogs iniciales...")
             
             # Selectores actualizados para dialogs de cookies
             cookie_selectors = [
@@ -538,14 +261,14 @@ class InstagramScraper:
                     
                     if element.is_displayed():
                         element.click()
-                        print(f"[DEBUG] Dialog cerrado con: {selector}")
+                        safe_print(f"[DEBUG] Dialog cerrado con: {selector}")
                         time.sleep(2)
                         break
                 except:
                     continue
                     
         except Exception as e:
-            print(f"[DEBUG] No se encontraron dialogs: {e}")
+            safe_print(f"[DEBUG] No se encontraron dialogs: {safe_str(str(e))}")
     
     def _is_private_or_not_found(self):
         """Verifica si el perfil es privado o no existe"""
@@ -573,7 +296,7 @@ class InstagramScraper:
     def _perform_login(self):
         """Realiza el login en Instagram"""
         try:
-            print("[INFO] Iniciando proceso de login...")
+            safe_print("[INFO] Iniciando proceso de login...")
             
             # Credenciales
             username = "probandorolando123"
@@ -592,9 +315,9 @@ class InstagramScraper:
                     EC.presence_of_element_located((By.NAME, "username"))
                 )
                 password_field = self.driver.find_element(By.NAME, "password")
-                print("[DEBUG] Campos de login encontrados")
+                safe_print("[DEBUG] Campos de login encontrados")
             except TimeoutException:
-                print("[ERROR] No se encontraron campos de login")
+                safe_print("[ERROR] No se encontraron campos de login")
                 return False
             
             # Escribir credenciales
@@ -615,15 +338,15 @@ class InstagramScraper:
             
             # Verificar login exitoso
             if self._is_logged_in():
-                print("[SUCCESS] Login completado")
+                safe_print("[SUCCESS] Login completado")
                 self._handle_post_login_dialogs()
                 return True
             else:
-                print("[ERROR] Login falló")
+                safe_print("[ERROR] Login falló")
                 return False
                 
         except Exception as e:
-            print(f"[ERROR] Error durante login: {e}")
+            safe_print(f"[ERROR] Error durante login: {safe_str(str(e))}")
             return False
     
     def _is_logged_in(self):
@@ -656,7 +379,7 @@ class InstagramScraper:
     def _handle_post_login_dialogs(self):
         """Maneja dialogs post-login"""
         try:
-            print("[DEBUG] Manejando dialogs post-login...")
+            safe_print("[DEBUG] Manejando dialogs post-login...")
             
             dialog_selectors = [
                 "//button[contains(text(), 'Not Now')]",
@@ -670,17 +393,17 @@ class InstagramScraper:
                     button = self.driver.find_element(By.XPATH, selector)
                     if button.is_displayed():
                         button.click()
-                        print(f"[DEBUG] Dialog post-login cerrado")
+                        safe_print("[DEBUG] Dialog post-login cerrado")
                         time.sleep(2)
                         break
                 except:
                     continue
                     
         except Exception as e:
-            print(f"[DEBUG] Error manejando dialogs post-login: {e}")
+            safe_print(f"[DEBUG] Error manejando dialogs post-login: {safe_str(str(e))}")
     
     def _extract_post_data(self, post_url):
-        """Extrae datos de un post individual"""
+        """Extrae datos de un post individual - FORMATO COMPATIBLE CON FRONTEND"""
         try:
             # Extraer shortcode del URL
             shortcode_match = re.search(r'/(p|reel)/([^/]+)/', post_url)
@@ -692,8 +415,8 @@ class InstagramScraper:
             # Extraer media URL
             media_url = self._extract_media_url()
             
-            # Extraer caption
-            caption = self._extract_caption()
+            # Extraer caption de forma segura
+            caption = self._extract_caption_safe()
             
             # Extraer timestamp
             timestamp = self._extract_timestamp()
@@ -704,23 +427,109 @@ class InstagramScraper:
             # Extraer comentarios
             comment_count = self._extract_comment_count()
             
+            # ✅ FORMATO COMPATIBLE CON EL FRONTEND - DATOS LIMPIOS
             post_data = {
                 "id": shortcode,
                 "shortcode": shortcode,
-                "media_url": media_url,
-                "caption": caption,
-                "like_count": like_count,
-                "comment_count": comment_count,
-                "timestamp": timestamp,
+                "url": f"https://instagram.com/p/{shortcode}/",
+                "permalink": post_url,
                 "type": post_type,
-                "url": post_url
+                "media_type": post_type,
+                "caption": caption,
+                "text": caption,  # Alias para compatibilidad
+                "like_count": like_count,
+                "likes": like_count,  # Alias para compatibilidad
+                "comment_count": comment_count,
+                "comments": comment_count,  # Alias para compatibilidad
+                "timestamp": timestamp,
+                "taken_at": timestamp,  # Alias para compatibilidad
+                "display_url": media_url,  # ✅ CAMPO REQUERIDO POR EL FRONTEND
+                "media_url": media_url,
+                "thumbnail_url": media_url,
+                "image_url": media_url,
+                "is_video": post_type in ["VIDEO", "REEL"],
+                "video_url": media_url if post_type in ["VIDEO", "REEL"] else None,
+                "width": 1080,  # Valor por defecto
+                "height": 1080,  # Valor por defecto
+                "owner": {
+                    "username": post_url.split('/')[3] if len(post_url.split('/')) > 3 else "unknown"
+                }
             }
+            
+            # ✅ LOG SEGURO
+            safe_print(f"[DEBUG] Post extraído - ID: {shortcode}, Likes: {like_count}, Tipo: {post_type}")
             
             return post_data
             
         except Exception as e:
-            print(f"[ERROR] Error extrayendo datos del post: {e}")
+            safe_print(f"[ERROR] Error extrayendo datos del post: {safe_str(str(e))}")
             return None
+    
+    def _extract_caption_safe(self):
+        """Extrae caption de forma segura sin errores de Unicode"""
+        try:
+            # Estrategias múltiples para caption
+            strategies = [
+                self._extract_caption_from_meta_safe,
+                self._extract_caption_from_elements_safe
+            ]
+            
+            for strategy in strategies:
+                try:
+                    caption = strategy()
+                    if caption and len(caption) > 5:
+                        # ✅ LIMPIAR CAPTION DE CARACTERES PROBLEMÁTICOS
+                        clean_caption = caption.encode('ascii', 'replace').decode('ascii')
+                        return clean_caption[:500]  # Limitar longitud
+                except:
+                    continue
+            
+            return ""
+            
+        except:
+            return ""
+    
+    def _extract_caption_from_meta_safe(self):
+        """Extrae caption de meta tags de forma segura"""
+        try:
+            meta_desc = self.driver.find_element(By.XPATH, "//meta[@name='description']").get_attribute("content")
+            
+            if meta_desc and ': "' in meta_desc:
+                parts = meta_desc.split(': "', 1)
+                if len(parts) > 1:
+                    caption = parts[1].rstrip('". ')
+                    # Limpiar caracteres problemáticos
+                    return caption.encode('ascii', 'replace').decode('ascii')
+            
+            return ""
+            
+        except:
+            return ""
+    
+    def _extract_caption_from_elements_safe(self):
+        """Extrae caption de elementos DOM de forma segura"""
+        try:
+            selectors = [
+                "article div[data-testid='post-comment-root'] span",
+                "article span",
+                "div[role='button'] span"
+            ]
+            
+            for selector in selectors:
+                try:
+                    elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                    for element in elements:
+                        text = element.text.strip()
+                        if text and len(text) > 10 and not text.isdigit():
+                            # Limpiar caracteres problemáticos
+                            return text.encode('ascii', 'replace').decode('ascii')
+                except:
+                    continue
+            
+            return ""
+            
+        except:
+            return ""
     
     def _extract_likes(self):
         """Extrae número de likes"""
@@ -737,13 +546,12 @@ class InstagramScraper:
                     likes = strategy()
                     if likes > 0:
                         return likes
-                except:
+                except Exception:
                     continue
             
             return 0
             
-        except Exception as e:
-            print(f"[DEBUG] Error extrayendo likes: {e}")
+        except Exception:
             return 0
     
     def _extract_likes_from_visible_elements(self):
@@ -842,75 +650,19 @@ class InstagramScraper:
         except:
             return None
     
-    def _extract_caption(self):
-        """Extrae caption del post"""
-        try:
-            # Estrategias múltiples para caption
-            strategies = [
-                self._extract_caption_from_meta,
-                self._extract_caption_from_elements
-            ]
-            
-            for strategy in strategies:
-                try:
-                    caption = strategy()
-                    if caption and len(caption) > 5:
-                        return caption[:500]
-                except:
-                    continue
-            
-            return ""
-            
-        except:
-            return ""
-    
-    def _extract_caption_from_meta(self):
-        """Extrae caption de meta tags"""
-        try:
-            meta_desc = self.driver.find_element(By.XPATH, "//meta[@name='description']").get_attribute("content")
-            
-            if meta_desc and ': "' in meta_desc:
-                parts = meta_desc.split(': "', 1)
-                if len(parts) > 1:
-                    return parts[1].rstrip('". ')
-            
-            return ""
-            
-        except:
-            return ""
-    
-    def _extract_caption_from_elements(self):
-        """Extrae caption de elementos DOM"""
-        try:
-            selectors = [
-                "article div[data-testid='post-comment-root'] span",
-                "article span",
-                "div[role='button'] span"
-            ]
-            
-            for selector in selectors:
-                try:
-                    elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
-                    for element in elements:
-                        text = element.text.strip()
-                        if text and len(text) > 10 and not text.isdigit():
-                            return text
-                except:
-                    continue
-            
-            return ""
-            
-        except:
-            return ""
-    
     def _extract_timestamp(self):
         """Extrae timestamp del post"""
         try:
             time_element = self.driver.find_element(By.TAG_NAME, "time")
             timestamp = time_element.get_attribute("datetime")
-            return timestamp or ""
+            if timestamp:
+                # Convertir a timestamp Unix
+                from datetime import datetime
+                dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                return int(dt.timestamp())
+            return int(time.time())  # Timestamp actual como fallback
         except:
-            return ""
+            return int(time.time())
     
     def _determine_post_type(self, post_url):
         """Determina el tipo de post"""
@@ -976,8 +728,8 @@ class InstagramScraper:
     def close(self):
         """Cierra el navegador"""
         try:
-            print("[INFO] Cerrando navegador...")
+            safe_print("[INFO] Cerrando navegador...")
             self.driver.quit()
-            print("[SUCCESS] Navegador cerrado")
+            safe_print("[SUCCESS] Navegador cerrado")
         except Exception as e:
-            print(f"[ERROR] Error cerrando navegador: {e}")
+            safe_print(f"[ERROR] Error cerrando navegador: {safe_str(str(e))}")
