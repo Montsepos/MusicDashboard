@@ -5,6 +5,10 @@
 // import AnalyzeSpotifyData from "./services/analyzeSpotify";
 // import { getArtistInstagram, getArtistMilestones } from "./services/chatGPTServices";
 // import { searchArtistsByGenre, getArtistStats } from "./services/spotifyServices";
+// import { getInstagramPosts, getInstagramTestPosts } from './services/instagramServices'
+// // AGREGAR ESTA IMPORTACIÓN
+// import ArtistInfo from "./components/spotifyApi";
+
 // import { 
 //   Box, Typography, Grid, 
 //   Container, TextField, Link, InputAdornment, Avatar
@@ -62,12 +66,17 @@
 //   artistMilestones, 
 //   setSelectedGenre,
 //   selectedGenre,
-//   accessToken
+//   accessToken,
+//   // ✅ NUEVAS PROPS AGREGADAS
+//   instagramPosts,
+//   loadingPosts
 // }) => {
 //   const [genreArtists, setGenreArtists] = useState([]);
 //   const [selectedRelatedArtist, setSelectedRelatedArtist] = useState(null);
 //   const [relatedArtistInstagram, setRelatedArtistInstagram] = useState("");
 //   const [relatedArtistMilestones, setRelatedArtistMilestones] = useState([]);
+//   // ✅ AGREGAR ESTADO PARA POSTS DEL ARTISTA RELACIONADO
+//   const [relatedArtistPosts, setRelatedArtistPosts] = useState([]);
 //   const [loading, setLoading] = useState(false);
 
 //   // Obtener artistas del género cuando cambia el género seleccionado
@@ -80,6 +89,8 @@
 //           setSelectedRelatedArtist(null);
 //           setRelatedArtistInstagram("");
 //           setRelatedArtistMilestones([]);
+//           // ✅ RESETEAR POSTS DEL ARTISTA RELACIONADO
+//           setRelatedArtistPosts([]);
 //         } catch (error) {
 //           console.error("Error al buscar artistas por género:", error);
 //         }
@@ -102,6 +113,22 @@
 //       const { instagram } = await getArtistInstagram(artist.name, artist.genres[0] || "");
 //       setRelatedArtistInstagram(instagram);
       
+//       // ✅ OBTENER POSTS DE INSTAGRAM DEL ARTISTA RELACIONADO
+//       if (instagram) {
+//         try {
+//           console.log(`📸 Obteniendo posts para artista relacionado @${instagram}...`);
+//           const posts = await getInstagramPosts(instagram);
+//           console.log(`✅ Posts obtenidos para ${artist.name}:`, posts);
+//           setRelatedArtistPosts(posts);
+//         } catch (error) {
+//           console.error("❌ Error obteniendo posts del artista relacionado:", error);
+//           setRelatedArtistPosts([]);
+//         }
+//       } else {
+//         console.log("⚠️ No se encontró Instagram para artista relacionado");
+//         setRelatedArtistPosts([]);
+//       }
+      
 //       const milestones = await getArtistMilestones(artist.name);
 //       setRelatedArtistMilestones(milestones);
 //     } catch (error) {
@@ -112,7 +139,7 @@
 //   };
 
 //   return (
-//     <Box maxWidth="1000px" mx="auto">
+//     <Box maxWidth="1200px" mx="auto">
 //       <Box sx={{ pt: 2, pb: 4 }}>
 //         <Typography variant="h3" component="h1" fontWeight="bold" sx={{ mb: 1 }}>
 //           Investiga a otros artistas
@@ -122,6 +149,7 @@
 //           mejores videos de Instagram. Además explora artistas similares de su mismo género
 //         </Typography>
         
+//         {/* Búsqueda sin cambios */}
 //         <Box sx={{ display: 'flex', mt: 3, mb: 4 }}>
 //           <TextField
 //             size="small"
@@ -157,217 +185,65 @@
 //         </Box>
 //       </Box>
       
-//       {/* Mostrar información del artista principal */}
 //       {artistData && (
 //         <Box>
-//           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, mb: 4 }}>
-//             {/* Columna del artista principal */}
-//             <Box sx={{ width: { xs: '100%', md: 'calc(50% - 1.5rem)' } }}>
-//               <Box sx={{ mb: 2 }}>
-//                 <img
-//                   src={artistData.images.length > 0 ? artistData.images[0].url : ""}
-//                   alt={artistData.name}
-//                   style={{ 
-//                     width: '100%',
-//                     maxHeight: '300px',
-//                     objectFit: 'cover',
-//                     borderRadius: '4px'
-//                   }}
-//                 />
-//               </Box>
-              
-//               <Box>
-//                 <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 2 }}>
-//                   Datos de Spotify
-//                 </Typography>
-                
-//                 <Box sx={{ mb: 1 }}>
-//                   <Typography component="span" sx={{ fontWeight: 'bold' }}>Artista - </Typography>
-//                   <Typography component="span">{artistData.name}</Typography>
-//                 </Box>
-                
-//                 <Box sx={{ mb: 1 }}>
-//                   <Typography component="span" sx={{ fontWeight: 'bold' }}>Seguidores - </Typography>
-//                   <Typography component="span">{artistData.followers.total.toLocaleString()}</Typography>
-//                 </Box>
-                
-//                 <Box sx={{ mb: 1 }}>
-//                   <Typography component="span" sx={{ fontWeight: 'bold' }}>Popularidad - </Typography>
-//                   <Typography component="span">{artistData.popularity}</Typography>
-//                 </Box>
-                
-//                 <Box sx={{ mb: 3 }}>
-//                   <Typography component="span" sx={{ fontWeight: 'bold' }}>Géneros - </Typography>
-//                   {artistData.genres.map((genre, index) => (
-//                     <React.Fragment key={genre}>
-//                       <Link
-//                         component="span"
-//                         onClick={() => setSelectedGenre(genre)}
-//                         sx={{ 
-//                           color: '#2196f3',
-//                           cursor: 'pointer',
-//                           textDecoration: 'none',
-//                           '&:hover': { textDecoration: 'underline' }
-//                         }}
-//                       >
-//                         {genre}
-//                       </Link>
-//                       {index < artistData.genres.length - 1 && <span> </span>}
-//                     </React.Fragment>
-//                   ))}
-//                 </Box>
-                
-//                 {/* Hitos del artista */}
-//                 {artistMilestones.length > 0 && (
-//                   <Box sx={{ mb: 3 }}>
-//                     <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1 }}>
-//                       Hitos del artista
-//                     </Typography>
-//                     <Box component="ol" sx={{ pl: 2.5, mt: 0.5, mb: 0 }}>
-//                       {artistMilestones.map((hito, i) => (
-//                         <Typography component="li" key={i} sx={{ mb: 0.5, fontSize: '0.95rem' }}>
-//                           {hito}
-//                         </Typography>
-//                       ))}
-//                     </Box>
-//                   </Box>
-//                 )}
-                
-//                 {/* Datos de Instagram */}
-//                 {instagramHandle && (
-//                   <Box>
-//                     <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1 }}>
-//                       Datos de Instagram
-//                     </Typography>
-//                     <Box sx={{ mb: 1 }}>
-//                       <Typography component="span" sx={{ fontWeight: 'bold' }}>Cuenta: </Typography>
-//                       <Link 
-//                         href={`https://instagram.com/${instagramHandle}`}
-//                         target="_blank"
-//                         rel="noopener noreferrer"
-//                         sx={{ 
-//                           color: '#2196f3',
-//                           textDecoration: 'none',
-//                           fontWeight: 'bold',
-//                           '&:hover': { textDecoration: 'underline' }
-//                         }}
-//                       >
-//                         @{instagramHandle}
-//                       </Link>
-//                     </Box>
-//                     <Typography component="p" sx={{ mt: 1 }}>
-//                       Sus mejores videos...
-//                     </Typography>
-//                   </Box>
-//                 )}
-//               </Box>
+//           {/* Contenedor de artistas con layout mejorado */}
+//           <Box sx={{ 
+//             display: 'grid',
+//             gridTemplateColumns: {
+//               xs: '1fr', // Una columna en pantallas pequeñas
+//               lg: selectedRelatedArtist ? '1fr 1fr' : '1fr' // Dos columnas solo cuando hay artista relacionado
+//             },
+//             gap: 4,
+//             mb: 4,
+//             // Asegurar que el contenido no se desborde
+//             minHeight: 'fit-content',
+//             alignItems: 'start'
+//           }}>
+//             {/* Artista principal */}
+//             <Box sx={{ 
+//               minWidth: 0, // Permite que el contenido se contraiga
+//               overflow: 'hidden' // Previene desbordamiento
+//             }}>
+//               <Typography variant="h5" fontWeight="bold" sx={{ mb: 2, color: '#1976d2' }}>
+//                 Artista Principal
+//               </Typography>
+//               {console.log('🔥 [APP.JS] Renderizando ArtistInfo para artista principal:', artistData.name)}
+//               <ArtistInfo 
+//                 artist={artistData}
+//                 instagramHandle={instagramHandle}
+//                 artistMilestones={artistMilestones}
+//                 // ✅ PASAR LOS POSTS DE INSTAGRAM COMO PROPS
+//                 instagramPosts={instagramPosts}
+//                 loadingPosts={loadingPosts}
+//                 setSelectedGenre={setSelectedGenre}
+//               />
 //             </Box>
             
-//             {/* Columna del artista relacionado */}
+//             {/* Artista relacionado */}
 //             {selectedRelatedArtist && (
-//               <Box sx={{ width: { xs: '100%', md: 'calc(50% - 1.5rem)' } }}>
-//                 <Box sx={{ mb: 2 }}>
-//                   <img
-//                     src={selectedRelatedArtist.images.length > 0 ? selectedRelatedArtist.images[0].url : ""}
-//                     alt={selectedRelatedArtist.name}
-//                     style={{ 
-//                       width: '100%',
-//                       maxHeight: '300px',
-//                       objectFit: 'cover',
-//                       borderRadius: '4px'
-//                     }}
-//                   />
-//                 </Box>
-                
-//                 <Box>
-//                   <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 2 }}>
-//                     Datos de Spotify
-//                   </Typography>
-                  
-//                   <Box sx={{ mb: 1 }}>
-//                     <Typography component="span" sx={{ fontWeight: 'bold' }}>Artista - </Typography>
-//                     <Typography component="span">{selectedRelatedArtist.name}</Typography>
-//                   </Box>
-                  
-//                   <Box sx={{ mb: 1 }}>
-//                     <Typography component="span" sx={{ fontWeight: 'bold' }}>Seguidores - </Typography>
-//                     <Typography component="span">{selectedRelatedArtist.followers.total.toLocaleString()}</Typography>
-//                   </Box>
-                  
-//                   <Box sx={{ mb: 1 }}>
-//                     <Typography component="span" sx={{ fontWeight: 'bold' }}>Popularidad - </Typography>
-//                     <Typography component="span">{selectedRelatedArtist.popularity}</Typography>
-//                   </Box>
-                  
-//                   <Box sx={{ mb: 3 }}>
-//                     <Typography component="span" sx={{ fontWeight: 'bold' }}>Géneros - </Typography>
-//                     {selectedRelatedArtist.genres.map((genre, index) => (
-//                       <React.Fragment key={genre}>
-//                         <Link
-//                           component="span"
-//                           sx={{ 
-//                             color: '#2196f3',
-//                             cursor: 'pointer',
-//                             textDecoration: 'none',
-//                             '&:hover': { textDecoration: 'underline' }
-//                           }}
-//                         >
-//                           {genre}
-//                         </Link>
-//                         {index < selectedRelatedArtist.genres.length - 1 && <span> </span>}
-//                       </React.Fragment>
-//                     ))}
-//                   </Box>
-                  
-//                   {/* Hitos del artista relacionado */}
-//                   {relatedArtistMilestones.length > 0 && (
-//                     <Box sx={{ mb: 3 }}>
-//                       <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1 }}>
-//                         Hitos del artista
-//                       </Typography>
-//                       <Box component="ol" sx={{ pl: 2.5, mt: 0.5, mb: 0 }}>
-//                         {relatedArtistMilestones.map((hito, i) => (
-//                           <Typography component="li" key={i} sx={{ mb: 0.5, fontSize: '0.95rem' }}>
-//                             {hito}
-//                           </Typography>
-//                         ))}
-//                       </Box>
-//                     </Box>
-//                   )}
-                  
-//                   {/* Datos de Instagram */}
-//                   {relatedArtistInstagram && (
-//                     <Box>
-//                       <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1 }}>
-//                         Datos de Instagram
-//                       </Typography>
-//                       <Box sx={{ mb: 1 }}>
-//                         <Typography component="span" sx={{ fontWeight: 'bold' }}>Cuenta: </Typography>
-//                         <Link 
-//                           href={`https://instagram.com/${relatedArtistInstagram}`}
-//                           target="_blank"
-//                           rel="noopener noreferrer"
-//                           sx={{ 
-//                             color: '#2196f3',
-//                             textDecoration: 'none',
-//                             fontWeight: 'bold',
-//                             '&:hover': { textDecoration: 'underline' }
-//                           }}
-//                         >
-//                           @{relatedArtistInstagram}
-//                         </Link>
-//                       </Box>
-//                       <Typography component="p" sx={{ mt: 1 }}>
-//                         Sus mejores videos...
-//                       </Typography>
-//                     </Box>
-//                   )}
-//                 </Box>
+//               <Box sx={{ 
+//                 minWidth: 0, // Permite que el contenido se contraiga
+//                 overflow: 'hidden' // Previene desbordamiento
+//               }}>
+//                 <Typography variant="h5" fontWeight="bold" sx={{ mb: 2, color: '#1976d2' }}>
+//                   Artista Relacionado
+//                 </Typography>
+//                 {console.log('🔥 [APP.JS] Renderizando ArtistInfo para artista relacionado:', selectedRelatedArtist.name)}
+//                 <ArtistInfo 
+//                   artist={selectedRelatedArtist}
+//                   instagramHandle={relatedArtistInstagram}
+//                   artistMilestones={relatedArtistMilestones}
+//                   // ✅ PASAR LOS POSTS DEL ARTISTA RELACIONADO
+//                   instagramPosts={relatedArtistPosts}
+//                   loadingPosts={loading}
+//                   setSelectedGenre={setSelectedGenre}
+//                 />
 //               </Box>
 //             )}
 //           </Box>
           
-//           {/* Barra horizontal de artistas del género */}
+//           {/* Barra horizontal de artistas del género - sin cambios */}
 //           {selectedGenre && genreArtists.length > 0 && (
 //             <Box sx={{ mb: 4 }}>
 //               <Typography variant="h6" sx={{ mb: 2 }}>
@@ -454,6 +330,10 @@
 //   const [selectedGenre, setSelectedGenre] = useState(null);
 //   const [instagramHandle, setInstagramHandle] = useState("");
 //   const [selectedSection, setSelectedSection] = useState("userdata");
+  
+//   // ✅ NUEVOS ESTADOS PARA LOS POSTS DE INSTAGRAM
+//   const [instagramPosts, setInstagramPosts] = useState([]);
+//   const [loadingPosts, setLoadingPosts] = useState(false);
 
 //   useEffect(() => {
 //     getSpotifyToken().then((token) => {
@@ -462,25 +342,69 @@
 //     });
 //   }, []);
 
+//   // ✅ FUNCIÓN handleSearch COMPLETAMENTE MEJORADA
 //   async function handleSearch(e) {
 //     if (e) e.preventDefault();
 //     if (!searchTerm || !spotifyAccessToken) return;
 
-//     const artist = await getArtist(searchTerm, spotifyAccessToken);
-//     setArtistData(artist);
+//     try {
+//       console.log(`🔍 Iniciando búsqueda para: ${searchTerm}`);
+      
+//       // 1. Obtener datos del artista de Spotify
+//       const artist = await getArtist(searchTerm, spotifyAccessToken);
+//       setArtistData(artist);
 
-//     if (artist?.name) {
-//       console.log("GENERO DEL ARTISTA:", artist.genres[0]);
-//       const { instagram } = await getArtistInstagram(artist.name, artist.genres[0]);
-//       setInstagramHandle(instagram);
+//       if (artist?.name) {
+//         console.log("🎵 GENERO DEL ARTISTA:", artist.genres[0]);
+        
+//         // 2. Obtener Instagram handle del artista
+//         const { instagram } = await getArtistInstagram(artist.name, artist.genres[0] || "");
+//         setInstagramHandle(instagram);
+//         console.log(`📱 Instagram handle encontrado: @${instagram}`);
 
-//       const milestones = await getArtistMilestones(artist.name);
-//       setArtistMilestones(milestones);
-//     }
+//         // 3. ✅ OBTENER POSTS USANDO EL INSTAGRAM HANDLE (NO EL NOMBRE DEL ARTISTA)
+//         if (instagram && instagram.trim()) {
+//           setLoadingPosts(true);
+//           try {
+//             console.log(`📸 Obteniendo posts de Instagram para @${instagram}...`);
+//             const posts = await getInstagramPosts(instagram);
+//             console.log(`✅ ${posts.length} posts de Instagram obtenidos:`, posts);
+//             setInstagramPosts(posts);
+//           } catch (error) {
+//             console.error("❌ Error obteniendo posts de Instagram:", error);
+//             setInstagramPosts([]);
+//           } finally {
+//             setLoadingPosts(false);
+//           }
+//         } else {
+//           console.log("⚠️ No se encontró handle de Instagram válido para este artista");
+//           setInstagramPosts([]);
+//           setLoadingPosts(false);
+//         }
 
-//     if (artist && artist.genres && artist.genres.length > 0) {
-//       setSelectedGenre(artist.genres[0]);
-//     } else {
+//         // 4. Obtener milestones del artista
+//         console.log(`🏆 Obteniendo milestones para ${artist.name}...`);
+//         const milestones = await getArtistMilestones(artist.name);
+//         setArtistMilestones(milestones);
+//         console.log(`✅ Milestones obtenidos:`, milestones);
+//       }
+
+//       // 5. Configurar género
+//       if (artist && artist.genres && artist.genres.length > 0) {
+//         setSelectedGenre(artist.genres[0]);
+//       } else {
+//         setSelectedGenre(null);
+//       }
+      
+//       console.log("✅ Búsqueda completada exitosamente");
+//     } catch (error) {
+//       console.error("❌ Error en la búsqueda:", error);
+//       // ✅ RESETEAR TODOS LOS ESTADOS EN CASO DE ERROR
+//       setArtistData(null);
+//       setInstagramHandle("");
+//       setInstagramPosts([]);
+//       setArtistMilestones([]);
+//       setLoadingPosts(false);
 //       setSelectedGenre(null);
 //     }
 //   }
@@ -529,6 +453,9 @@
 //             setSelectedGenre={setSelectedGenre}
 //             selectedGenre={selectedGenre}
 //             accessToken={spotifyAccessToken}
+//             // ✅ PASAR LAS NUEVAS PROPS DE INSTAGRAM
+//             instagramPosts={instagramPosts}
+//             loadingPosts={loadingPosts}
 //           />
 //         </Box>
 //       )}
@@ -538,14 +465,14 @@
 
 // export default App;
 
+
 import React, { useState, useEffect } from "react";
 import "./App.css";
 import { getArtist, getSpotifyToken } from "./services/spotifyServices";
 import AnalyzeSpotifyData from "./services/analyzeSpotify";
 import { getArtistInstagram, getArtistMilestones } from "./services/chatGPTServices";
 import { searchArtistsByGenre, getArtistStats } from "./services/spotifyServices";
-import {getInstagramTopPosts} from "./services/instagramServices";
-// AGREGAR ESTA IMPORTACIÓN
+import { getInstagramPosts, getInstagramTestPosts } from './services/instagramServices'
 import ArtistInfo from "./components/spotifyApi";
 
 import { 
@@ -554,7 +481,7 @@ import {
 } from "@mui/material";
 import SearchIcon from '@mui/icons-material/Search';
 
-// Botón personalizado para reemplazar el botón de Material-UI
+//modularizar
 const CustomButton = ({ children, onClick, isActive }) => {
   return (
     <button
@@ -605,15 +532,17 @@ const ResearchArtistsSection = ({
   artistMilestones, 
   setSelectedGenre,
   selectedGenre,
-  accessToken
+  accessToken,
+  instagramPosts,
+  loadingPosts
 }) => {
   const [genreArtists, setGenreArtists] = useState([]);
   const [selectedRelatedArtist, setSelectedRelatedArtist] = useState(null);
   const [relatedArtistInstagram, setRelatedArtistInstagram] = useState("");
   const [relatedArtistMilestones, setRelatedArtistMilestones] = useState([]);
+  const [relatedArtistPosts, setRelatedArtistPosts] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Obtener artistas del género cuando cambia el género seleccionado
   useEffect(() => {
     async function fetchArtistsByGenre() {
       if (selectedGenre && accessToken) {
@@ -623,6 +552,7 @@ const ResearchArtistsSection = ({
           setSelectedRelatedArtist(null);
           setRelatedArtistInstagram("");
           setRelatedArtistMilestones([]);
+          setRelatedArtistPosts([]);
         } catch (error) {
           console.error("Error al buscar artistas por género:", error);
         }
@@ -645,6 +575,27 @@ const ResearchArtistsSection = ({
       const { instagram } = await getArtistInstagram(artist.name, artist.genres[0] || "");
       setRelatedArtistInstagram(instagram);
       
+      if (instagram) {
+        try {
+          console.log(`📸 Obteniendo posts para artista relacionado @${instagram}...`);
+          const instagramData = await getInstagramPosts(instagram);
+          
+          if (instagramData.success && instagramData.posts && Array.isArray(instagramData.posts) && instagramData.posts.length > 0) {
+            console.log(`✅ ${instagramData.posts.length} posts obtenidos para ${artist.name}:`, instagramData.posts);
+            setRelatedArtistPosts(instagramData.posts);
+          } else {
+            console.log(`⚠️ No se encontraron posts para ${artist.name}:`, instagramData.error || 'Sin posts');
+            setRelatedArtistPosts([]);
+          }
+        } catch (error) {
+          console.error("❌ Error obteniendo posts del artista relacionado:", error);
+          setRelatedArtistPosts([]);
+        }
+      } else {
+        console.log("⚠️ No se encontró Instagram para artista relacionado");
+        setRelatedArtistPosts([]);
+      }
+      
       const milestones = await getArtistMilestones(artist.name);
       setRelatedArtistMilestones(milestones);
     } catch (error) {
@@ -655,7 +606,7 @@ const ResearchArtistsSection = ({
   };
 
   return (
-    <Box maxWidth="1200px" mx="auto"> {/* Aumentar maxWidth */}
+    <Box maxWidth="1200px" mx="auto">
       <Box sx={{ pt: 2, pb: 4 }}>
         <Typography variant="h3" component="h1" fontWeight="bold" sx={{ mb: 1 }}>
           Investiga a otros artistas
@@ -701,7 +652,6 @@ const ResearchArtistsSection = ({
         </Box>
       </Box>
       
-      {/* REEMPLAZA TODA ESTA SECCIÓN CON EL CÓDIGO CORREGIDO */}
       {artistData && (
         <Box>
           {/* Contenedor de artistas con layout mejorado */}
@@ -730,6 +680,9 @@ const ResearchArtistsSection = ({
                 artist={artistData}
                 instagramHandle={instagramHandle}
                 artistMilestones={artistMilestones}
+                // ✅ PASAR LOS POSTS DE INSTAGRAM COMO PROPS
+                instagramPosts={instagramPosts}
+                loadingPosts={loadingPosts}
                 setSelectedGenre={setSelectedGenre}
               />
             </Box>
@@ -748,6 +701,9 @@ const ResearchArtistsSection = ({
                   artist={selectedRelatedArtist}
                   instagramHandle={relatedArtistInstagram}
                   artistMilestones={relatedArtistMilestones}
+                  // ✅ PASAR LOS POSTS DEL ARTISTA RELACIONADO
+                  instagramPosts={relatedArtistPosts}
+                  loadingPosts={loading}
                   setSelectedGenre={setSelectedGenre}
                 />
               </Box>
@@ -841,6 +797,10 @@ function App() {
   const [selectedGenre, setSelectedGenre] = useState(null);
   const [instagramHandle, setInstagramHandle] = useState("");
   const [selectedSection, setSelectedSection] = useState("userdata");
+  
+  // ✅ NUEVOS ESTADOS PARA LOS POSTS DE INSTAGRAM
+  const [instagramPosts, setInstagramPosts] = useState([]);
+  const [loadingPosts, setLoadingPosts] = useState(false);
 
   useEffect(() => {
     getSpotifyToken().then((token) => {
@@ -849,29 +809,93 @@ function App() {
     });
   }, []);
 
+  // ✅ AGREGAR useEffect PARA DEBUGGING (temporal)
+  useEffect(() => {
+    console.log('🐛 [APP.JS] Estado instagramPosts cambió:', {
+      type: typeof instagramPosts,
+      isArray: Array.isArray(instagramPosts),
+      length: instagramPosts?.length || 'N/A',
+      content: instagramPosts
+    });
+  }, [instagramPosts]);
+
+  // ✅ FUNCIÓN handleSearch COMPLETAMENTE CORREGIDA
   async function handleSearch(e) {
     if (e) e.preventDefault();
     if (!searchTerm || !spotifyAccessToken) return;
 
-    const artist = await getArtist(searchTerm, spotifyAccessToken);
-    setArtistData(artist);
+    try {
+      console.log(`🔍 Iniciando búsqueda para: ${searchTerm}`);
+      
+      // 1. Obtener datos del artista de Spotify
+      const artist = await getArtist(searchTerm, spotifyAccessToken);
+      setArtistData(artist);
 
-    if (artist?.name) {
-      console.log("GENERO DEL ARTISTA:", artist.genres[0]);
-      const { instagram } = await getArtistInstagram(artist.name, artist.genres[0]);
-      setInstagramHandle(instagram);
+      if (artist?.name) {
+        console.log("🎵 GENERO DEL ARTISTA:", artist.genres[0]);
+        
+        // 2. Obtener Instagram handle del artista
+        const { instagram } = await getArtistInstagram(artist.name, artist.genres[0] || "");
+        setInstagramHandle(instagram);
+        console.log(`📱 Instagram handle encontrado: @${instagram}`);
 
-      ///////////////////////////////////
-      const posts = await getInstagramTopPosts(artist.name);
-      console.log("Posts de Instagram obtenidos:", posts);
+        // 3. ✅ OBTENER POSTS - CÓDIGO COMPLETAMENTE CORREGIDO
+        if (instagram && instagram.trim()) {
+          setLoadingPosts(true);
+          try {
+            console.log(`📸 Obteniendo posts de Instagram para @${instagram}...`);
+            const instagramData = await getInstagramPosts(instagram);
+            
+            // 🐛 DEBUG: Ver qué devuelve el servicio
+            console.log('🐛 [APP.JS] Respuesta completa de Instagram:', instagramData);
+            console.log('🐛 [APP.JS] Success:', instagramData.success);
+            console.log('🐛 [APP.JS] Posts count:', instagramData.posts_count);
+            console.log('🐛 [APP.JS] Posts array:', instagramData.posts);
 
-      const milestones = await getArtistMilestones(artist.name);
-      setArtistMilestones(milestones);
-    }
+            // ✅ VALIDAR Y EXTRAER POSTS CORRECTAMENTE
+            if (instagramData.success && instagramData.posts && Array.isArray(instagramData.posts) && instagramData.posts.length > 0) {
+              console.log(`✅ ${instagramData.posts.length} posts de Instagram obtenidos:`, instagramData.posts);
+              setInstagramPosts(instagramData.posts); // ← SOLO LOS POSTS, NO TODO EL OBJETO
+            } else {
+              console.log(`⚠️ No se encontraron posts válidos para @${instagram}`);
+              console.log('🐛 [APP.JS] Razón:', instagramData.error || 'Posts array vacío o inválido');
+              setInstagramPosts([]); // ← ARRAY VACÍO
+            }
+          } catch (error) {
+            console.error("❌ Error obteniendo posts de Instagram:", error);
+            setInstagramPosts([]);
+          } finally {
+            setLoadingPosts(false);
+          }
+        } else {
+          console.log("⚠️ No se encontró handle de Instagram válido para este artista");
+          setInstagramPosts([]);
+          setLoadingPosts(false);
+        }
 
-    if (artist && artist.genres && artist.genres.length > 0) {
-      setSelectedGenre(artist.genres[0]);
-    } else {
+        // 4. Obtener milestones del artista
+        console.log(`🏆 Obteniendo milestones para ${artist.name}...`);
+        const milestones = await getArtistMilestones(artist.name);
+        setArtistMilestones(milestones);
+        console.log(`✅ Milestones obtenidos:`, milestones);
+      }
+
+      // 5. Configurar género
+      if (artist && artist.genres && artist.genres.length > 0) {
+        setSelectedGenre(artist.genres[0]);
+      } else {
+        setSelectedGenre(null);
+      }
+      
+      console.log("✅ Búsqueda completada exitosamente");
+    } catch (error) {
+      console.error("❌ Error en la búsqueda:", error);
+      // ✅ RESETEAR TODOS LOS ESTADOS EN CASO DE ERROR
+      setArtistData(null);
+      setInstagramHandle("");
+      setInstagramPosts([]);
+      setArtistMilestones([]);
+      setLoadingPosts(false);
       setSelectedGenre(null);
     }
   }
@@ -879,7 +903,6 @@ function App() {
   return (
     <Container maxWidth="xl" sx={{ mt: 3, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       {/* Header pequeño + botones */}
-  
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4, width: '100%' }}>
         <Typography variant="h6" component="h1" fontWeight="bold">
           Music Dashboard
@@ -921,6 +944,9 @@ function App() {
             setSelectedGenre={setSelectedGenre}
             selectedGenre={selectedGenre}
             accessToken={spotifyAccessToken}
+            // ✅ PASAR LAS NUEVAS PROPS DE INSTAGRAM
+            instagramPosts={instagramPosts}
+            loadingPosts={loadingPosts}
           />
         </Box>
       )}
